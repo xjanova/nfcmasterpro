@@ -158,6 +158,10 @@ export const strings = {
     'settings.clearHistory': 'ล้างประวัติ',
     'settings.clearCache': 'ล้างแคช',
     'settings.appSettings': 'การตั้งค่าแอป',
+    'settings.appearance': 'ธีม',
+    'settings.themeMode': 'โหมดธีม',
+    'settings.lightMode': 'สว่าง',
+    'settings.darkMode': 'มืด',
 
     // Notifications
     'notifications.notifications': 'การแจ้งเตือน',
@@ -396,6 +400,10 @@ export const strings = {
     'settings.clearHistory': 'Clear History',
     'settings.clearCache': 'Clear Cache',
     'settings.appSettings': 'App Settings',
+    'settings.appearance': 'Appearance',
+    'settings.themeMode': 'Theme Mode',
+    'settings.lightMode': 'Light',
+    'settings.darkMode': 'Dark',
 
     // Notifications
     'notifications.notifications': 'Notifications',

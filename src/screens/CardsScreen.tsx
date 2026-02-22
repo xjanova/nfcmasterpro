@@ -14,7 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NFCCardVisual, StatusBadge, EmptyState } from '../components';
 import { useLanguage } from '../utils/i18n';
-import { Colors, Spacing, Radius, FontSizes, TextStyles } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
+import { createTextStyles, Spacing, Radius, FontSizes, Shadow } from '../utils/theme';
 import { DEFAULT_CURRENCY } from '../utils/constants';
 import * as cardService from '../services/cardService';
 import { CardInfo } from '../types';
@@ -23,11 +24,11 @@ const CardsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const ts = createTextStyles(colors);
   const [cards, setCards] = useState<CardInfo[]>([]);
   const [filteredCards, setFilteredCards] = useState<CardInfo[]>([]);
-  const [filter, setFilter] = useState<'all' | 'active' | 'disabled' | 'lost'>(
-    'all'
-  );
+  const [filter, setFilter] = useState<'all' | 'active' | 'disabled' | 'lost'>('all');
   const [searchText, setSearchText] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,102 +38,48 @@ const CardsScreen: React.FC = () => {
       const allCards = await cardService.getCards();
       setCards(allCards);
       applyFilters(allCards, filter, searchText);
-    } catch (error) {
-      console.error('Error loading cards:', error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error('Error loading cards:', error); }
+    finally { setLoading(false); }
   }, [filter, searchText]);
 
-  const applyFilters = (
-    cardsToFilter: CardInfo[],
-    activeFilter: string,
-    search: string
-  ) => {
-    let result = cardsToFilter;
-
-    // Apply status filter
-    if (activeFilter !== 'all') {
-      result = result.filter(c => c.status === activeFilter);
-    }
-
-    // Apply search filter
+  const applyFilters = (data: CardInfo[], f: string, search: string) => {
+    let result = data;
+    if (f !== 'all') result = result.filter(c => c.status === f);
     if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter(
-        c =>
-          c.uid.toLowerCase().includes(searchLower) ||
-          (c.memberName && c.memberName.toLowerCase().includes(searchLower))
-      );
+      const s = search.toLowerCase();
+      result = result.filter(c => c.uid.toLowerCase().includes(s) || c.memberName?.toLowerCase().includes(s));
     }
-
     setFilteredCards(result);
   };
 
-  useEffect(() => {
-    loadCards();
-  }, []);
+  useEffect(() => { loadCards(); }, []);
+  useFocusEffect(useCallback(() => { loadCards(); }, [loadCards]));
 
-  useFocusEffect(
-    useCallback(() => {
-      loadCards();
-    }, [loadCards])
-  );
+  const onRefresh = async () => { setRefreshing(true); await loadCards(); setRefreshing(false); };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadCards();
-    setRefreshing(false);
-  };
-
-  const handleFilterChange = (newFilter: typeof filter) => {
-    setFilter(newFilter);
-    applyFilters(cards, newFilter, searchText);
-  };
-
-  const handleSearch = (text: string) => {
-    setSearchText(text);
-    applyFilters(cards, filter, text);
-  };
-
-  const handleCardPress = (cardUID: string) => {
-    navigation.navigate('CardDetail', { cardUID });
-  };
+  const handleFilterChange = (newFilter: typeof filter) => { setFilter(newFilter); applyFilters(cards, newFilter, searchText); };
+  const handleSearch = (text: string) => { setSearchText(text); applyFilters(cards, filter, text); };
 
   const renderCard = ({ item }: { item: CardInfo }) => (
-    <TouchableOpacity
-      style={styles.cardItemContainer}
-      onPress={() => handleCardPress(item.uid)}>
-      <View style={styles.cardItem}>
-        <View style={styles.cardVisualWrapper}>
-          <NFCCardVisual
-            uid={item.uid}
-            memberName={item.memberName || 'Unregistered'}
-            balance={item.balance}
-            compact={true}
-          />
+    <TouchableOpacity style={styles.cardItemContainer} onPress={() => navigation.navigate('CardDetail', { cardUID: item.uid })}>
+      <View style={[styles.cardItem, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+        <View style={[styles.cardVisualWrapper, { backgroundColor: colors.surface }]}>
+          <NFCCardVisual uid={item.uid} memberName={item.memberName || 'Unregistered'} balance={item.balance} compact={true} />
         </View>
         <View style={styles.cardInfo}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardUID} numberOfLines={1}>
-              {item.uid}
-            </Text>
+            <Text style={[{ fontFamily: 'monospace', fontSize: FontSizes.sm, color: colors.textMuted, flex: 1 }]} numberOfLines={1}>{item.uid}</Text>
             <StatusBadge status={item.status} />
           </View>
-          {item.memberName && (
-            <Text style={styles.memberName}>{item.memberName}</Text>
-          )}
+          {item.memberName && <Text style={[ts.bodyMedium, { fontWeight: '600', marginBottom: 4 }]}>{item.memberName}</Text>}
           <View style={styles.cardStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Balance:</Text>
-              <Text style={styles.statValue}>
-                {DEFAULT_CURRENCY}
-                {item.balance}
-              </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={ts.labelSmall}>Balance</Text>
+              <Text style={[ts.bodyMedium, { color: colors.primary, fontWeight: '600' }]}>{DEFAULT_CURRENCY}{item.balance}</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>PV:</Text>
-              <Text style={styles.statValue}>{item.pvPoints}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={ts.labelSmall}>PV</Text>
+              <Text style={[ts.bodyMedium, { color: colors.primary, fontWeight: '600' }]}>{item.pvPoints}</Text>
             </View>
           </View>
         </View>
@@ -140,10 +87,7 @@ const CardsScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const filterOptions: Array<{
-    key: 'all' | 'active' | 'disabled' | 'lost';
-    label: string;
-  }> = [
+  const filterOptions: { key: typeof filter; label: string }[] = [
     { key: 'all', label: t['cards.allCards'] },
     { key: 'active', label: t['cards.activeCards'] },
     { key: 'disabled', label: t['cards.disabledCards'] },
@@ -151,90 +95,49 @@ const CardsScreen: React.FC = () => {
   ];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bg} />
 
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t['cards.cardManagement']}</Text>
+        <Text style={[ts.headingLarge, { fontWeight: '800' }]}>{t['cards.cardManagement']}</Text>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchSection}>
-        <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t['common.search']}
-            placeholderTextColor={Colors.textMuted}
-            value={searchText}
-            onChangeText={handleSearch}
-          />
-          {searchText && (
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={{ fontSize: 16, marginRight: Spacing.sm }}>{'🔍'}</Text>
+          <TextInput style={[styles.searchInput, { color: colors.text }]}
+            placeholder={t['common.search']} placeholderTextColor={colors.textMuted}
+            value={searchText} onChangeText={handleSearch} />
+          {searchText ? (
             <TouchableOpacity onPress={() => handleSearch('')}>
-              <Text style={styles.clearIcon}>✕</Text>
+              <Text style={{ fontSize: 16, color: colors.textMuted }}>{'✕'}</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
 
-      {/* Filter Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterContent}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
         {filterOptions.map(option => (
-          <TouchableOpacity
-            key={option.key}
-            style={[
-              styles.filterTab,
-              filter === option.key && styles.filterTabActive,
-            ]}
+          <TouchableOpacity key={option.key}
+            style={[styles.filterTab, { borderColor: colors.border }, filter === option.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
             onPress={() => handleFilterChange(option.key)}>
-            <Text
-              style={[
-                styles.filterTabText,
-                filter === option.key && styles.filterTabTextActive,
-              ]}>
-              {option.label}
-            </Text>
+            <Text style={[styles.filterTabText, { color: colors.textMuted }, filter === option.key && { color: '#fff' }]}>{option.label}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Cards List */}
       {filteredCards.length > 0 ? (
-        <FlatList
-          data={filteredCards}
-          renderItem={renderCard}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={Colors.primary}
-            />
-          }
-        />
+        <FlatList data={filteredCards} renderItem={renderCard} keyExtractor={item => item.id}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />} />
       ) : (
         <View style={styles.emptyContainer}>
-          <EmptyState
-            icon="💳"
-            title="No Cards"
-            message={
-              filter === 'all' && !searchText
-                ? 'Start by registering a new card'
-                : 'No cards found'
-            }
-          />
+          <EmptyState icon="💳" title="No Cards" message={filter === 'all' && !searchText ? 'Start by registering a new card' : 'No cards found'} />
         </View>
       )}
 
-      {/* FAB Button */}
-      <TouchableOpacity
-        style={styles.fab}
+      <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }, Shadow.lg]}
         onPress={() => navigation.navigate('CardDetail', { cardUID: '' })}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
@@ -243,153 +146,35 @@ const CardsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  headerTitle: {
-    ...TextStyles.headingLarge,
-  },
-  searchSection: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
+  container: { flex: 1 },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
+  searchSection: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.md,
-    height: 44,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    flexDirection: 'row', alignItems: 'center', borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md, height: 44, borderWidth: 1,
   },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: Spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    color: Colors.text,
-    fontSize: FontSizes.md,
-  },
-  clearIcon: {
-    fontSize: 18,
-    color: Colors.textMuted,
-  },
-  filterScroll: {
-    maxHeight: 50,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  filterContent: {
-    gap: Spacing.sm,
-  },
+  searchInput: { flex: 1, fontSize: FontSizes.md },
+  filterScroll: { maxHeight: 50, marginHorizontal: Spacing.xl, marginBottom: Spacing.md },
+  filterContent: { gap: Spacing.sm },
   filterTab: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    borderRadius: Radius.full, borderWidth: 1,
   },
-  filterTabActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterTabText: {
-    ...TextStyles.labelMedium,
-    color: Colors.textMuted,
-  },
-  filterTabTextActive: {
-    color: Colors.text,
-  },
-  listContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  cardItemContainer: {
-    marginBottom: Spacing.md,
-  },
-  cardItem: {
-    flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  cardVisualWrapper: {
-    width: 100,
-    height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-  },
-  cardInfo: {
-    flex: 1,
-    padding: Spacing.md,
-    justifyContent: 'space-between',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.sm,
-  },
-  cardUID: {
-    ...TextStyles.monoSmall,
-    flex: 1,
-  },
-  memberName: {
-    ...TextStyles.bodyMedium,
-    marginBottom: Spacing.sm,
-  },
-  cardStats: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
-  },
-  statItem: {
-    flex: 1,
-  },
-  statLabel: {
-    ...TextStyles.labelSmall,
-    marginBottom: Spacing.xs,
-  },
-  statValue: {
-    ...TextStyles.bodyMedium,
-    color: Colors.primary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  filterTabText: { fontSize: FontSizes.sm, fontWeight: '600' },
+  listContent: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm },
+  cardItemContainer: { marginBottom: Spacing.md },
+  cardItem: { flexDirection: 'row', borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1 },
+  cardVisualWrapper: { width: 100, height: 100, justifyContent: 'center', alignItems: 'center' },
+  cardInfo: { flex: 1, padding: Spacing.md, justifyContent: 'space-between' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
+  cardStats: { flexDirection: 'row', gap: Spacing.lg },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   fab: {
-    position: 'absolute',
-    bottom: Spacing.xl,
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    position: 'absolute', bottom: 90, right: Spacing.xl,
+    width: 56, height: 56, borderRadius: 28,
+    justifyContent: 'center', alignItems: 'center', elevation: 8,
   },
-  fabText: {
-    fontSize: 28,
-    color: Colors.text,
-    fontWeight: 'bold',
-  },
+  fabText: { fontSize: 28, color: '#fff', fontWeight: 'bold' },
 });
 
 export default CardsScreen;

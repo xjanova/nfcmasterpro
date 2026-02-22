@@ -13,7 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../utils/i18n';
-import { Colors, Spacing, Radius, FontSizes, TextStyles } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
+import { createTextStyles, Spacing, Radius, FontSizes, Shadow } from '../utils/theme';
 import { DEFAULT_CURRENCY } from '../utils/constants';
 import * as paymentService from '../services/paymentService';
 
@@ -21,6 +22,8 @@ const PaymentScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const ts = createTextStyles(colors);
   const [cardUID, setCardUID] = useState('');
   const [amount, setAmount] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -30,13 +33,11 @@ const PaymentScreen: React.FC = () => {
       Alert.alert(t['common.error'], 'Please fill in all fields');
       return;
     }
-
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       Alert.alert(t['common.error'], 'Invalid amount');
       return;
     }
-
     setProcessing(true);
     try {
       const transaction = await paymentService.processPayment(cardUID, parsedAmount);
@@ -45,65 +46,58 @@ const PaymentScreen: React.FC = () => {
       setCardUID('');
       setAmount('');
     } catch (error) {
-      Alert.alert(
-        t['common.error'],
-        error instanceof Error ? error.message : 'Payment failed'
-      );
-    } finally {
-      setProcessing(false);
-    }
+      Alert.alert(t['common.error'], error instanceof Error ? error.message : 'Payment failed');
+    } finally { setProcessing(false); }
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bg} />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t['payment.paymentTest']}</Text>
-          <Text style={styles.subtitle}>{t['payment.testMode']}</Text>
+          <Text style={[ts.headingLarge, { fontWeight: '800', marginBottom: 4 }]}>{t['payment.paymentTest']}</Text>
+          <View style={[styles.badge, { backgroundColor: colors.warningGlow }]}>
+            <Text style={{ fontSize: FontSizes.xs, fontWeight: '700', color: colors.warning }}>{t['payment.testMode']}</Text>
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Card UID</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter card UID"
-            placeholderTextColor={Colors.textMuted}
-            value={cardUID}
-            onChangeText={setCardUID}
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Amount ({DEFAULT_CURRENCY})</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter amount"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="decimal-pad"
-            value={amount}
-            onChangeText={setAmount}
-          />
+        <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+          <View style={[styles.inputGroup, { borderBottomColor: colors.border }]}>
+            <Text style={[ts.labelMedium, { fontWeight: '600', marginBottom: Spacing.sm }]}>Card UID</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              placeholder="Enter card UID"
+              placeholderTextColor={colors.textMuted}
+              value={cardUID}
+              onChangeText={setCardUID}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={[ts.labelMedium, { fontWeight: '600', marginBottom: Spacing.sm }]}>
+              Amount ({DEFAULT_CURRENCY})
+            </Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              placeholder="0.00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+              value={amount}
+              onChangeText={setAmount}
+            />
+          </View>
         </View>
 
         <TouchableOpacity
-          style={[styles.paymentButton, processing && styles.paymentButtonDisabled]}
-          onPress={handlePayment}
-          disabled={processing}>
-          {processing ? (
-            <ActivityIndicator color={Colors.text} />
-          ) : (
-            <Text style={styles.paymentButtonText}>{t['payment.tapToPay']}</Text>
-          )}
+          style={[styles.payBtn, { backgroundColor: colors.primary }, processing && { opacity: 0.6 }, Shadow.md]}
+          onPress={handlePayment} disabled={processing}>
+          {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.payBtnText}>{t['payment.tapToPay']}</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.historyButton}
+          style={[styles.historyBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => navigation.navigate('TransactionHistory')}>
-          <Text style={styles.historyButtonText}>{t['payment.transactionHistory']}</Text>
+          <Text style={[ts.bodyMedium, { color: colors.primary, fontWeight: '600' }]}>{t['payment.transactionHistory']}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -111,71 +105,23 @@ const PaymentScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: Spacing.lg,
-  },
-  header: {
-    marginBottom: Spacing.xxl,
-    paddingTop: Spacing.lg,
-  },
-  title: {
-    ...TextStyles.headingLarge,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    ...TextStyles.bodySmall,
-  },
-  section: {
-    marginBottom: Spacing.xl,
-  },
-  label: {
-    ...TextStyles.labelMedium,
-    marginBottom: Spacing.md,
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: Spacing.xl },
+  header: { marginBottom: Spacing.xxl, paddingTop: Spacing.lg },
+  badge: { alignSelf: 'flex-start', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.sm, marginTop: Spacing.sm },
+  inputCard: { borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden', marginBottom: Spacing.xl },
+  inputGroup: { padding: Spacing.lg, borderBottomWidth: 1 },
   input: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    color: Colors.text,
-    fontSize: FontSizes.md,
+    borderRadius: Radius.md, borderWidth: 1,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, fontSize: FontSizes.lg,
   },
-  paymentButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.lg,
-    marginVertical: Spacing.xl,
-    alignItems: 'center',
+  payBtn: {
+    borderRadius: Radius.lg, paddingVertical: 16, alignItems: 'center', marginBottom: Spacing.lg,
   },
-  paymentButtonDisabled: {
-    opacity: 0.6,
-  },
-  paymentButtonText: {
-    color: Colors.text,
-    fontWeight: '700',
-    fontSize: FontSizes.lg,
-  },
-  historyButton: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  historyButtonText: {
-    color: Colors.primary,
-    fontWeight: '600',
-    fontSize: FontSizes.md,
+  payBtnText: { color: '#fff', fontWeight: '700', fontSize: FontSizes.lg },
+  historyBtn: {
+    borderRadius: Radius.lg, paddingVertical: Spacing.md, borderWidth: 1, alignItems: 'center',
   },
 });
 

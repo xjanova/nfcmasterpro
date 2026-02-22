@@ -6,27 +6,21 @@ import {
   StatusBar,
 } from 'react-native';
 import { SplashLogo } from '../components';
-import { Colors, Spacing } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
+import { Spacing } from '../utils/theme';
 import { APP_VERSION } from '../utils/constants';
 
-/**
- * Splash screen — shown for 2.5 seconds on app launch.
- * Navigation is handled by AppNavigator (showSplash state),
- * NOT by this screen (to avoid navigating to unregistered routes).
- */
 const SplashScreen: React.FC = () => {
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+  const { colors } = useTheme();
 
-      {/* Logo Section */}
+  return (
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bg} />
       <View style={styles.logoSection}>
         <SplashLogo />
       </View>
-
-      {/* Version Badge */}
       <View style={styles.versionSection}>
-        <View style={styles.versionBadge}>
+        <View style={[styles.versionBadge, { backgroundColor: colors.primary }]}>
           <Text style={styles.versionText}>v{APP_VERSION}</Text>
         </View>
       </View>
@@ -35,32 +29,11 @@ const SplashScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  versionSection: {
-    paddingBottom: Spacing.xxxl,
-    alignItems: 'center',
-  },
-  versionBadge: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: 20,
-  },
-  versionText: {
-    color: Colors.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  logoSection: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  versionSection: { paddingBottom: Spacing.xxxl, alignItems: 'center' },
+  versionBadge: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: 20 },
+  versionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 });
 
 export default SplashScreen;
