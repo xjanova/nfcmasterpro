@@ -214,6 +214,22 @@ export interface PaginatedResponse<T = any> {
 
 // ========== Navigation Types ==========
 
+// ========== QR Scanner Types ==========
+
+export interface QRPairingData {
+  card_number: string;
+  pairing_token: string;
+  expires_at: string;
+  card_type?: string;
+}
+
+export interface PairingResult {
+  success: boolean;
+  message: string;
+  card?: CardInfo;
+  member?: Member;
+}
+
 export type RootStackParamList = {
   Splash: undefined;
   MainTabs: undefined;
@@ -228,6 +244,7 @@ export type RootStackParamList = {
   CloneNFC: undefined;
   HexView: { data?: string };
   Notifications: undefined;
+  QRScanner: undefined;
 };
 
 export type BottomTabParamList = {

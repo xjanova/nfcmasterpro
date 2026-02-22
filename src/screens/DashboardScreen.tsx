@@ -107,6 +107,7 @@ const DashboardScreen: React.FC = () => {
   const handleQuickAction = (action: string) => {
     const actionMap: { [key: string]: string } = {
       scan: 'ReadNFC',
+      qrscanner: 'QRScanner',
       register: 'CardDetail',
       member: 'MemberRegister',
       topup: 'Payment',
@@ -191,6 +192,7 @@ const DashboardScreen: React.FC = () => {
             contentContainerStyle={styles.quickActionsContent}>
             {[
               { key: 'scan', icon: '🔍', label: 'Scan' },
+              { key: 'qrscanner', icon: '📱', label: 'QR Code' },
               { key: 'register', icon: '💳', label: 'Register' },
               { key: 'member', icon: '👤', label: 'Member' },
               { key: 'topup', icon: '💰', label: 'Top Up' },

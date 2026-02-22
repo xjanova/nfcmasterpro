@@ -24,6 +24,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import MembersScreen from '../screens/MembersScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import QRScannerScreen from '../screens/QRScannerScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -144,6 +145,7 @@ export default function AppNavigator() {
               <Stack.Screen name="CloneNFC" component={CloneNFCScreen} />
               <Stack.Screen name="HexView" component={HexViewScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
+              <Stack.Screen name="QRScanner" component={QRScannerScreen} />
             </Stack.Group>
           </>
         )}

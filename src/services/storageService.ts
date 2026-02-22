@@ -191,3 +191,13 @@ export const saveMembers = async (members: Member[]): Promise<void> => {
     throw new Error('บันทึกสมาชิกไม่สำเร็จ');
   }
 };
+
+export const getMemberById = async (memberId: string): Promise<Member | null> => {
+  try {
+    const members = await getMembers();
+    return members.find(m => m.id === memberId) || null;
+  } catch (error) {
+    console.error('[StorageService] Error getting member by ID:', error);
+    return null;
+  }
+};
