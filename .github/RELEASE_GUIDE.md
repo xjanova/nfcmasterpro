@@ -1,31 +1,45 @@
-# 🚀 Release Guide — NFC Master Pro
+# 🚀 Release Guide — NFC Master Pro v2.0
 
 ## How to trigger a new release
 
-### Method 1: Push a version tag (Recommended)
-```bash
-# Tag the current commit with a version
-git tag v1.0.0
-git push origin v1.0.0
-```
-GitHub Actions will automatically:
-1. Build the signed release APK
-2. Create a GitHub Release with the APK attached
-3. Add release notes from git commits
-
-### Method 2: Manual trigger from GitHub UI
+### Method: Manual trigger from GitHub UI (Recommended)
 1. Go to **Actions** tab → **🚀 Auto Release APK**
 2. Click **Run workflow**
-3. Enter the version (e.g., `v1.1.0`)
+3. Enter the version (e.g., `2.0.1`)
 4. Click **Run workflow**
+
+GitHub Actions will automatically:
+1. Build the signed release APK
+2. Patch axios for Metro bundling compatibility
+3. Create a GitHub Release with the APK attached
+4. Add release notes from git commits
 
 ---
 
 ## Download the APK
+
 After the workflow finishes (~10-15 min):
 
-- **Debug APK** (from main push): Go to Actions → Latest build → Artifacts
-- **Release APK** (from tags): Go to [Releases](https://github.com/xjanova/nfcmasterpro/releases) → Download APK
+- **Debug APK** (auto on push): Go to Actions → Latest build → Artifacts
+- **Release APK** (manual trigger): Go to [Releases](https://github.com/xjanova/nfcmasterpro/releases) → Download APK
+
+Latest release: [v2.0.1](https://github.com/xjanova/nfcmasterpro/releases/tag/v2.0.1)
+
+---
+
+## Known Build Notes
+
+### Axios Metro Fix
+Release builds require patching axios to prevent it from using Node.js entry points. This is handled automatically in the workflow via:
+```bash
+node -e "const p=require('./node_modules/axios/package.json'); delete p.exports; p.main='index.js'; require('fs').writeFileSync('./node_modules/axios/package.json', JSON.stringify(p,null,2));"
+```
+
+### react-native-svg Version
+Pinned to `14.1.0` for compatibility with React Native 0.73.6. Do NOT upgrade to v15+ without upgrading RN first.
+
+### compileSdkVersion
+Patched to `35` in the workflow to match dependency requirements.
 
 ---
 
