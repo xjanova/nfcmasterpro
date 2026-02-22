@@ -51,7 +51,35 @@ jobs:
           echo "✅ Scaffold created at /tmp/nfc-build"
 
       # ──────────────────────────────────────────
-      # 4. Overlay our custom source code
+      # 4. Upgrade Android Gradle Plugin + compileSdk
+      #    (RN 0.73.6 scaffold uses AGP 8.1.1 / compileSdk 34,
+      #     but newer androidx libs require AGP 8.6.0 / compileSdk 35)
+      # ──────────────────────────────────────────
+      - name: 🔧 Patch Android Gradle to AGP 8.6.0 + compileSdk 35
+        run: |
+          # Upgrade AGP 8.1.1 → 8.6.0
+          sed -i "s/com.android.tools.build:gradle:8.1.1/com.android.tools.build:gradle:8.6.0/" \
+            /tmp/nfc-build/android/build.gradle
+
+          # Bump compileSdk + targetSdk: 34 → 35
+          sed -i "s/compileSdkVersion = 34/compileSdkVersion = 35/" /tmp/nfc-build/android/build.gradle
+          sed -i "s/targetSdkVersion = 34/targetSdkVersion = 35/" /tmp/nfc-build/android/build.gradle
+
+          # Upgrade Gradle wrapper to 8.7 (required by AGP 8.6.0)
+          cat > /tmp/nfc-build/android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          echo "✅ AGP → 8.6.0, compileSdk/targetSdk → 35, Gradle → 8.7"
+
+      # ──────────────────────────────────────────
+      # 6. Overlay our custom source code
       # ──────────────────────────────────────────
       - name: 📋 Overlay custom source files
         run: |
