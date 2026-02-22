@@ -2,7 +2,8 @@
  * Storage Service — บันทึกประวัติและการตั้งค่า
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NFCScanResult, AppSettings } from '../types';
+import { NFCScanResult, AppSettings, CardInfo, Transaction, AppNotification, Member } from '../types';
+import { STORAGE_KEYS } from '../utils/constants';
 
 const HISTORY_KEY = '@nfc_history';
 const SETTINGS_KEY = '@nfc_settings';
@@ -97,4 +98,96 @@ export const getStats = async (): Promise<{ reads: number; writes: number; clone
     clones: history.filter(r => r.operation === 'clone').length,
     registers: history.filter(r => r.operation === 'register').length,
   };
+};
+
+// ============================================================
+//  Card Storage
+// ============================================================
+
+export const getCards = async (): Promise<CardInfo[]> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.CARDS);
+    if (!json) return [];
+    return JSON.parse(json);
+  } catch {
+    return [];
+  }
+};
+
+export const saveCards = async (cards: CardInfo[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
+  } catch (error) {
+    console.error('[StorageService] Error saving cards:', error);
+    throw new Error('บันทึกการ์ดไม่สำเร็จ');
+  }
+};
+
+// ============================================================
+//  Transaction Storage
+// ============================================================
+
+export const getTransactions = async (): Promise<Transaction[]> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    if (!json) return [];
+    return JSON.parse(json);
+  } catch {
+    return [];
+  }
+};
+
+export const saveTransactions = async (txs: Transaction[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(txs));
+  } catch (error) {
+    console.error('[StorageService] Error saving transactions:', error);
+    throw new Error('บันทึกธุรกรรมไม่สำเร็จ');
+  }
+};
+
+// ============================================================
+//  Notification Storage
+// ============================================================
+
+export const getNotifications = async (): Promise<AppNotification[]> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+    if (!json) return [];
+    return JSON.parse(json);
+  } catch {
+    return [];
+  }
+};
+
+export const saveNotifications = async (notifs: AppNotification[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
+  } catch (error) {
+    console.error('[StorageService] Error saving notifications:', error);
+    throw new Error('บันทึกการแจ้งเตือนไม่สำเร็จ');
+  }
+};
+
+// ============================================================
+//  Member Storage
+// ============================================================
+
+export const getMembers = async (): Promise<Member[]> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.MEMBERS);
+    if (!json) return [];
+    return JSON.parse(json);
+  } catch {
+    return [];
+  }
+};
+
+export const saveMembers = async (members: Member[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+  } catch (error) {
+    console.error('[StorageService] Error saving members:', error);
+    throw new Error('บันทึกสมาชิกไม่สำเร็จ');
+  }
 };

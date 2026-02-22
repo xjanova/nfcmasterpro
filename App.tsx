@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { LanguageProvider } from './src/context/LanguageContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initNFC } from './src/services/nfcService';
 import { initApiClient } from './src/services/apiService';
+
+LogBox.ignoreLogs(['ViewPropTypes', 'ColorPropType']);
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -14,11 +17,13 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0a0f" />
-      <AppNavigator />
-      <Toast />
-    </GestureHandlerRootView>
+    <LanguageProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" backgroundColor="#0a0a0f" />
+        <AppNavigator />
+        <Toast />
+      </GestureHandlerRootView>
+    </LanguageProvider>
   );
 };
 

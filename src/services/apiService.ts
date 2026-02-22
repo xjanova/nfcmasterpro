@@ -3,7 +3,7 @@
  * เชื่อมต่อกับ Laravel API ของโปรเจค Thaiprompt-Affiliate
  */
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { TPMember, TPRegistrationData, TPRegistrationResult, AppSettings } from '../types';
+import { TPMember, TPRegistrationData, TPRegistrationResult, AppSettings, Member, MemberFormData, CardInfo } from '../types';
 import { getSettings } from './storageService';
 
 let apiClient: AxiosInstance | null = null;
@@ -180,4 +180,99 @@ export const getAffiliateUrl = (member: TPMember): string => {
 export const updateApiConfig = async (baseUrl: string, apiKey: string): Promise<void> => {
   apiClient = null; // Reset to reinitialize
   await initApiClient();
+};
+
+// ============================================================
+//  Member API Endpoints
+// ============================================================
+
+/**
+ * Get all members from API
+ */
+export const getMembers = async (): Promise<Member[]> => {
+  try {
+    const client = await getClient();
+    const response: AxiosResponse<{ data: Member[] }> = await client.get('/members');
+    return response.data.data || [];
+  } catch (error) {
+    console.error('[API] Error fetching members:', error);
+    return [];
+  }
+};
+
+/**
+ * Get member by ID from API
+ */
+export const getMemberById = async (id: string): Promise<Member | null> => {
+  try {
+    const client = await getClient();
+    const response: AxiosResponse<{ data: Member }> = await client.get(
+      `/members/${encodeURIComponent(id)}`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error('[API] Error fetching member:', error);
+    return null;
+  }
+};
+
+/**
+ * Create new member via API
+ */
+export const createMember = async (data: MemberFormData): Promise<Member> => {
+  try {
+    const client = await getClient();
+    const response: AxiosResponse<{ data: Member }> = await client.post('/members', {
+      name: data.name,
+      phone: data.phone,
+      email: data.email,
+      position: data.position,
+      company: data.company,
+      photo: data.photo,
+    });
+    return response.data.data;
+  } catch (error: any) {
+    console.error('[API] Error creating member:', error);
+    throw new Error(
+      error.response?.data?.message || 'สร้างสมาชิกไม่สำเร็จ'
+    );
+  }
+};
+
+/**
+ * Update member via API
+ */
+export const updateMember = async (
+  id: string,
+  data: Partial<Member>
+): Promise<Member> => {
+  try {
+    const client = await getClient();
+    const response: AxiosResponse<{ data: Member }> = await client.put(
+      `/members/${encodeURIComponent(id)}`,
+      data
+    );
+    return response.data.data;
+  } catch (error: any) {
+    console.error('[API] Error updating member:', error);
+    throw new Error(
+      error.response?.data?.message || 'อัพเดตสมาชิกไม่สำเร็จ'
+    );
+  }
+};
+
+/**
+ * Get cards for a specific member
+ */
+export const getCardsByMember = async (memberId: string): Promise<CardInfo[]> => {
+  try {
+    const client = await getClient();
+    const response: AxiosResponse<{ data: CardInfo[] }> = await client.get(
+      `/members/${encodeURIComponent(memberId)}/cards`
+    );
+    return response.data.data || [];
+  } catch (error) {
+    console.error('[API] Error fetching member cards:', error);
+    return [];
+  }
 };
