@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,7 +33,6 @@ const MembersScreen: React.FC = () => {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { loadMembers(); }, [loadMembers]);
   useFocusEffect(useCallback(() => { loadMembers(); }, [loadMembers]));
 
   const onRefresh = async () => { setRefreshing(true); await loadMembers(); setRefreshing(false); };

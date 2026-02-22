@@ -151,3 +151,38 @@ jobs:
           echo "📦 APK size: $APK_SIZE"
           echo "📍 SHA: ${{ github.sha }}"
           echo "🔗 Download from: Actions → This run → Artifacts"
+
+  # ──────────────────────────────────────────
+  # Auto-tag on push to main → triggers release.yml
+  # ──────────────────────────────────────────
+  auto-tag:
+    name: Auto Tag Release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏷️ Create version tag if not exists
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          echo "📦 Package version: ${VERSION}"
+          echo "🏷️ Tag to create: ${TAG}"
+
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "⏭️ Tag ${TAG} already exists — skipping"
+          else
+            echo "🆕 Creating tag ${TAG}..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "${TAG}" -m "Release ${TAG}"
+            git push origin "${TAG}"
+            echo "✅ Tag ${TAG} pushed — release workflow will trigger"
+          fi
