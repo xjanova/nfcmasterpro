@@ -1,0 +1,117 @@
+name: 🔨 Build Debug APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ──────────────────────────────────────────
+      # 1. Checkout
+      # ──────────────────────────────────────────
+      - name: 📥 Checkout source code
+        uses: actions/checkout@v4
+
+      # ──────────────────────────────────────────
+      # 2. Environment setup
+      # ──────────────────────────────────────────
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: 📦 Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+
+      - name: 🤖 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ──────────────────────────────────────────
+      # 3. Initialize React Native Android project
+      # ──────────────────────────────────────────
+      - name: 🏗️ Initialize React Native project
+        env:
+          CI: true
+        run: |
+          echo "🔧 Creating React Native Android scaffold..."
+          npx --yes react-native@0.73.6 init NFCMasterPro \
+            --skip-install \
+            --directory /tmp/nfc-build \
+            --version 0.73.6
+          echo "✅ Scaffold created at /tmp/nfc-build"
+
+      # ──────────────────────────────────────────
+      # 4. Overlay our custom source code
+      # ──────────────────────────────────────────
+      - name: 📋 Overlay custom source files
+        run: |
+          echo "📂 Copying custom source files..."
+          cp -rf src/ /tmp/nfc-build/src/
+          cp App.tsx /tmp/nfc-build/App.tsx
+
+          echo "📝 Merging package.json dependencies..."
+          node -e "
+            const base = require('/tmp/nfc-build/package.json');
+            const custom = require('${{ github.workspace }}/package.json');
+            base.name = custom.name || base.name;
+            base.version = custom.version || '1.0.0';
+            base.dependencies = { ...base.dependencies, ...custom.dependencies };
+            base.devDependencies = { ...base.devDependencies, ...custom.devDependencies };
+            require('fs').writeFileSync('/tmp/nfc-build/package.json', JSON.stringify(base, null, 2));
+            console.log('✅ package.json merged');
+          "
+
+      # ──────────────────────────────────────────
+      # 5. Install dependencies
+      # ──────────────────────────────────────────
+      - name: 📲 Install npm dependencies
+        working-directory: /tmp/nfc-build
+        run: |
+          npm install --legacy-peer-deps
+          echo "✅ Dependencies installed"
+
+      # ──────────────────────────────────────────
+      # 6. Build Debug APK
+      # ──────────────────────────────────────────
+      - name: 🔨 Build Debug APK
+        working-directory: /tmp/nfc-build/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug \
+            --no-daemon \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m"
+          echo "✅ Debug APK built"
+
+      # ──────────────────────────────────────────
+      # 7. Upload artifact
+      # ──────────────────────────────────────────
+      - name: 📤 Upload Debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NFCMasterPro-debug-${{ github.sha }}
+          path: /tmp/nfc-build/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: 📊 APK Info
+        if: success()
+        run: |
+          APK_PATH="/tmp/nfc-build/android/app/build/outputs/apk/debug/app-debug.apk"
+          APK_SIZE=$(du -sh "$APK_PATH" | cut -f1)
+          echo "✅ Build successful!"
+          echo "📦 APK size: $APK_SIZE"
+          echo "📍 SHA: ${{ github.sha }}"
+          echo "🔗 Download from: Actions → This run → Artifacts"
