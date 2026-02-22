@@ -5,8 +5,11 @@
  */
 
 import { AppSettings } from '../types';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as storageService from './storageService';
 import * as apiService from './apiService';
+import { APP_VERSION, APP_NAME } from '../utils/constants';
 
 // ============================================================
 //  Types
@@ -241,4 +244,61 @@ export const generateDemoQRData = (): BackendPairingData => {
  */
 export const generateQRPayloadString = (data: BackendPairingData): string => {
   return JSON.stringify(data, null, 0);
+};
+
+// ============================================================
+//  Device QR Data — for Thaiprompt admin to scan
+// ============================================================
+
+export interface DeviceQRData {
+  type: 'nfc_device_pairing';
+  device_id: string;
+  app_name: string;
+  app_version: string;
+  platform: string;
+  generated_at: string;
+  expires_at: string;
+}
+
+/**
+ * Generate a unique device ID (persistent across sessions)
+ */
+const getOrCreateDeviceId = async (): Promise<string> => {
+  const KEY = '@nfc_device_id';
+  try {
+    const existing = await AsyncStorage.getItem(KEY);
+    if (existing) return existing;
+    const id = `nfc_${Platform.OS}_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    await AsyncStorage.setItem(KEY, id);
+    return id;
+  } catch {
+    return `nfc_${Platform.OS}_${Date.now()}`;
+  }
+};
+
+/**
+ * Generate device QR data for Thaiprompt admin to scan
+ * This creates a QR code the admin panel reads to register this device
+ */
+export const generateDeviceQRData = async (): Promise<DeviceQRData> => {
+  const deviceId = await getOrCreateDeviceId();
+  const now = new Date();
+  const expires = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes
+
+  return {
+    type: 'nfc_device_pairing',
+    device_id: deviceId,
+    app_name: APP_NAME,
+    app_version: APP_VERSION,
+    platform: Platform.OS,
+    generated_at: now.toISOString(),
+    expires_at: expires.toISOString(),
+  };
+};
+
+/**
+ * Convert device QR data to JSON string for QR code rendering
+ */
+export const deviceQRToString = (data: DeviceQRData): string => {
+  return JSON.stringify(data);
 };

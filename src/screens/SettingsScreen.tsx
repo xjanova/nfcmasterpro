@@ -154,13 +154,13 @@ const SettingsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           <TouchableOpacity
             style={[styles.qrPairBtn, { backgroundColor: colors.primaryGlow, borderBottomColor: colors.border }]}
             onPress={() => navigation?.navigate?.('QRScanner')}>
-            <Text style={{ fontSize: 20, marginRight: Spacing.md }}>{'🔗'}</Text>
+            <Text style={{ fontSize: 20, marginRight: Spacing.md }}>{'⬡'}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[ts.bodyMedium, { color: colors.primary, fontWeight: '600' }]}>
-                {lang === 'th' ? 'สแกน QR จับคู่ระบบ' : 'Scan QR to Pair System'}
+                {lang === 'th' ? 'สร้าง QR จับคู่ / สแกน QR' : 'Generate Pairing QR / Scan QR'}
               </Text>
               <Text style={ts.bodySmall}>
-                {lang === 'th' ? 'ตั้งค่า API อัตโนมัติจาก Thaiprompt' : 'Auto-configure API from Thaiprompt'}
+                {lang === 'th' ? 'จับคู่อุปกรณ์กับระบบ Thaiprompt' : 'Pair device with Thaiprompt system'}
               </Text>
             </View>
             <Text style={{ color: colors.textMuted, fontSize: 16 }}>{'>'}</Text>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,29 @@ import {
   Animated,
   TextInput,
   ActivityIndicator,
+  Share,
 } from 'react-native';
-import { Colors, Spacing, Radius, FontSizes, TextStyles, Shadow } from '../utils/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
+import { createTextStyles, Spacing, Radius, FontSizes, Shadow } from '../utils/theme';
 import { useLanguage } from '../utils/i18n';
+import { APP_VERSION } from '../utils/constants';
 import * as qrService from '../services/qrService';
-import { BackendPairingData } from '../services/qrService';
+import { BackendPairingData, DeviceQRData } from '../services/qrService';
 
-type ScreenMode = 'scan' | 'manual' | 'preview' | 'pairing' | 'result';
+// Conditionally import QRCode (may not be available in all environments)
+let QRCode: any = null;
+try {
+  QRCode = require('react-native-qrcode-svg').default;
+} catch {
+  // QRCode not available
+}
+
+type TabMode = 'scan' | 'generate';
+type ScanMode = 'idle' | 'manual' | 'preview' | 'pairing' | 'result';
 
 interface PairingState {
-  mode: ScreenMode;
+  scanMode: ScanMode;
   qrData?: BackendPairingData;
   loading: boolean;
   success: boolean;
@@ -32,9 +45,16 @@ interface PairingState {
 }
 
 const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const { t, lang } = useLanguage();
+  const { colors } = useTheme();
+  const ts = createTextStyles(colors);
+
+  const [activeTab, setActiveTab] = useState<TabMode>('generate');
+
+  // === Scan Tab State ===
   const [state, setState] = useState<PairingState>({
-    mode: 'scan',
+    scanMode: 'idle',
     loading: false,
     success: false,
     isPaired: false,
@@ -42,30 +62,52 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [manualInput, setManualInput] = useState('');
   const [scanAnimation] = useState(new Animated.Value(0));
 
-  // Check current pairing status on mount
+  // === Generate Tab State ===
+  const [deviceQR, setDeviceQR] = useState<DeviceQRData | null>(null);
+  const [qrString, setQrString] = useState<string>('');
+  const [generatingQR, setGeneratingQR] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  // Check pairing status on mount
   useEffect(() => {
     checkPairingStatus();
   }, []);
 
-  // Scan line animation
+  // Generate QR on first visit to generate tab
   useEffect(() => {
-    if (state.mode === 'scan') {
+    if (activeTab === 'generate' && !deviceQR) {
+      handleGenerateQR();
+    }
+  }, [activeTab]);
+
+  // Countdown timer for QR expiration
+  useEffect(() => {
+    if (!deviceQR) return;
+    const expires = new Date(deviceQR.expires_at).getTime();
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((expires - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        setDeviceQR(null);
+        setQrString('');
+      }
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [deviceQR]);
+
+  // Scan animation
+  useEffect(() => {
+    if (activeTab === 'scan' && state.scanMode === 'idle') {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(scanAnimation, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: false,
-          }),
-          Animated.timing(scanAnimation, {
-            toValue: 0,
-            duration: 2000,
-            useNativeDriver: false,
-          }),
+          Animated.timing(scanAnimation, { toValue: 1, duration: 2000, useNativeDriver: false }),
+          Animated.timing(scanAnimation, { toValue: 0, duration: 2000, useNativeDriver: false }),
         ])
       ).start();
     }
-  }, [state.mode, scanAnimation]);
+  }, [activeTab, state.scanMode, scanAnimation]);
 
   const checkPairingStatus = async () => {
     const status = await qrService.getPairingStatus();
@@ -80,9 +122,37 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   const handleClose = () => navigation?.goBack?.();
 
+  // === Generate QR Functions ===
+  const handleGenerateQR = async () => {
+    setGeneratingQR(true);
+    try {
+      const data = await qrService.generateDeviceQRData();
+      setDeviceQR(data);
+      setQrString(qrService.deviceQRToString(data));
+    } catch (err) {
+      Alert.alert(
+        lang === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
+        lang === 'th' ? 'ไม่สามารถสร้าง QR ได้' : 'Could not generate QR code'
+      );
+    } finally {
+      setGeneratingQR(false);
+    }
+  };
+
+  const handleShareQR = async () => {
+    if (!qrString) return;
+    try {
+      await Share.share({
+        message: qrString,
+        title: lang === 'th' ? 'รหัสจับคู่ NFC Master Pro' : 'NFC Master Pro Pairing Code',
+      });
+    } catch {}
+  };
+
+  // === Scan Tab Functions ===
   const handleDemoScan = () => {
     const demoData = qrService.generateDemoQRData();
-    setState(prev => ({ ...prev, mode: 'preview', qrData: demoData }));
+    setState(prev => ({ ...prev, scanMode: 'preview', qrData: demoData }));
   };
 
   const handleManualSubmit = () => {
@@ -97,26 +167,21 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     if (!data) {
       Alert.alert(
         lang === 'th' ? 'QR ไม่ถูกต้อง' : 'Invalid QR',
-        lang === 'th'
-          ? 'รูปแบบ QR ไม่ถูกต้องหรือหมดอายุ'
-          : 'QR format is invalid or expired'
+        lang === 'th' ? 'รูปแบบ QR ไม่ถูกต้องหรือหมดอายุ' : 'QR format is invalid or expired'
       );
       return;
     }
-    setState(prev => ({ ...prev, mode: 'preview', qrData: data }));
+    setState(prev => ({ ...prev, scanMode: 'preview', qrData: data }));
     setManualInput('');
   };
 
   const handleConfirmPairing = async () => {
     if (!state.qrData) return;
-
-    setState(prev => ({ ...prev, mode: 'pairing', loading: true }));
-
+    setState(prev => ({ ...prev, scanMode: 'pairing', loading: true }));
     const result = await qrService.pairWithBackend(state.qrData);
-
     setState(prev => ({
       ...prev,
-      mode: 'result',
+      scanMode: 'result',
       loading: false,
       success: result.success,
       message: result.message,
@@ -124,18 +189,13 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       isPaired: result.success,
       currentOrg: result.success ? result.orgName : prev.currentOrg,
     }));
-
-    if (result.success) {
-      setTimeout(() => handleClose(), 3000);
-    }
+    if (result.success) setTimeout(() => handleClose(), 3000);
   };
 
   const handleUnpair = () => {
     Alert.alert(
       lang === 'th' ? 'ยกเลิกการจับคู่' : 'Unpair Device',
-      lang === 'th'
-        ? 'ต้องการยกเลิกการเชื่อมต่อกับระบบหลังบ้านหรือไม่?'
-        : 'Do you want to disconnect from the backend system?',
+      lang === 'th' ? 'ต้องการยกเลิกการเชื่อมต่อกับระบบหลังบ้านหรือไม่?' : 'Disconnect from backend?',
       [
         { text: lang === 'th' ? 'ยกเลิก' : 'Cancel', style: 'cancel' },
         {
@@ -144,12 +204,8 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           onPress: async () => {
             await qrService.unpairFromBackend();
             setState(prev => ({
-              ...prev,
-              isPaired: false,
-              currentOrg: undefined,
-              currentApiUrl: undefined,
-              pairedAt: undefined,
-              mode: 'scan',
+              ...prev, isPaired: false, currentOrg: undefined,
+              currentApiUrl: undefined, pairedAt: undefined, scanMode: 'idle',
             }));
           },
         },
@@ -157,13 +213,9 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     );
   };
 
-  const handleReset = () => {
+  const handleResetScan = () => {
     setState(prev => ({
-      ...prev,
-      mode: 'scan',
-      qrData: undefined,
-      success: false,
-      message: undefined,
+      ...prev, scanMode: 'idle', qrData: undefined, success: false, message: undefined,
     }));
     setManualInput('');
   };
@@ -173,704 +225,629 @@ const QRScannerScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     outputRange: ['0%', '100%'],
   });
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   // ──────────────────────────────────────────────
-  //  HEADER
+  //  TAB BAR
   // ──────────────────────────────────────────────
-  const Header = ({ title, showBack = true }: { title: string; showBack?: boolean }) => (
-    <View style={styles.header}>
-      {showBack ? (
-        <TouchableOpacity
-          onPress={state.mode === 'scan' || state.mode === 'result' ? handleClose : handleReset}
-          style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={{ width: 44 }} />
-      )}
-      <Text style={styles.headerTitle}>{title}</Text>
-      <View style={{ width: 44 }} />
+  const TabBar = () => (
+    <View style={[s.tabBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <TouchableOpacity
+        style={[s.tab, activeTab === 'generate' && [s.tabActive, { borderBottomColor: colors.primary }]]}
+        onPress={() => setActiveTab('generate')}>
+        <Text style={[s.tabIcon, { color: activeTab === 'generate' ? colors.primary : colors.textMuted }]}>{'⬡'}</Text>
+        <Text style={[s.tabLabel, { color: activeTab === 'generate' ? colors.primary : colors.textMuted }]}>
+          {lang === 'th' ? 'สร้าง QR' : 'Generate QR'}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[s.tab, activeTab === 'scan' && [s.tabActive, { borderBottomColor: colors.primary }]]}
+        onPress={() => setActiveTab('scan')}>
+        <Text style={[s.tabIcon, { color: activeTab === 'scan' ? colors.primary : colors.textMuted }]}>{'◎'}</Text>
+        <Text style={[s.tabLabel, { color: activeTab === 'scan' ? colors.primary : colors.textMuted }]}>
+          {lang === 'th' ? 'สแกน QR' : 'Scan QR'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
   // ──────────────────────────────────────────────
-  //  SCAN MODE (Main)
+  //  GENERATE QR TAB
   // ──────────────────────────────────────────────
-  if (state.mode === 'scan') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
-        <Header title={lang === 'th' ? 'จับคู่ระบบ' : 'System Pairing'} />
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* Current Status */}
-          {state.isPaired && (
-            <View style={styles.statusCard}>
-              <View style={styles.statusDot} />
-              <View style={styles.statusInfo}>
-                <Text style={styles.statusLabel}>
-                  {lang === 'th' ? 'เชื่อมต่อแล้ว' : 'Connected'}
-                </Text>
-                <Text style={styles.statusOrg}>{state.currentOrg || 'Thaiprompt'}</Text>
-                <Text style={styles.statusUrl}>{state.currentApiUrl}</Text>
-                {state.pairedAt && (
-                  <Text style={styles.statusDate}>
-                    {lang === 'th' ? 'จับคู่เมื่อ' : 'Paired'}: {new Date(state.pairedAt).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US')}
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity style={styles.unpairButton} onPress={handleUnpair}>
-                <Text style={styles.unpairButtonText}>
-                  {lang === 'th' ? 'ยกเลิก' : 'Unpair'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Scanner Area */}
-          <View style={styles.scannerContainer}>
-            <View style={styles.scannerFrame}>
-              <View style={styles.scanArea}>
-                {/* Corner markers */}
-                <View style={[styles.corner, styles.topLeft]} />
-                <View style={[styles.corner, styles.topRight]} />
-                <View style={[styles.corner, styles.bottomLeft]} />
-                <View style={[styles.corner, styles.bottomRight]} />
-
-                {/* Scan line */}
-                <Animated.View style={[styles.scanLine, { top: scanLinePos as any }]} />
-
-                <Text style={styles.scanText}>
-                  {lang === 'th'
-                    ? 'สแกน QR จากหน้าแอดมิน\nThaiprompt เพื่อจับคู่แอพ'
-                    : 'Scan QR from Thaiprompt\nadmin panel to pair app'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Instructions */}
-          <View style={styles.instructionBox}>
-            <Text style={styles.instructionTitle}>
-              {lang === 'th' ? '📱 วิธีจับคู่แอพกับระบบ' : '📱 How to Pair App'}
+  const renderGenerateTab = () => (
+    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Pairing Status */}
+      {state.isPaired && (
+        <View style={[s.statusCard, { backgroundColor: colors.card, borderColor: colors.success + '40' }]}>
+          <View style={[s.statusDot, { backgroundColor: colors.success }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[ts.labelSmall, { color: colors.success, textTransform: 'uppercase' }]}>
+              {lang === 'th' ? 'เชื่อมต่อแล้ว' : 'Connected'}
             </Text>
-            <Text style={styles.instructionText}>
-              {lang === 'th'
-                ? '1. เปิดหน้าแอดมิน Thaiprompt\n2. ไปที่ NFC Management → สร้าง QR จับคู่\n3. สแกน QR หรือป้อนรหัสเชื่อมต่อ\n4. แอพจะตั้งค่า API อัตโนมัติ'
-                : '1. Open Thaiprompt admin panel\n2. Go to NFC Management → Generate Pairing QR\n3. Scan QR or enter connection code\n4. App will auto-configure API settings'}
+            <Text style={[ts.bodyLarge, { fontWeight: '600' }]}>{state.currentOrg || 'Thaiprompt'}</Text>
+          </View>
+          <TouchableOpacity
+            style={[s.unpairBtn, { borderColor: colors.danger + '60' }]}
+            onPress={handleUnpair}>
+            <Text style={[ts.labelSmall, { color: colors.danger }]}>
+              {lang === 'th' ? 'ยกเลิก' : 'Unpair'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* QR Code Display */}
+      <View style={[s.qrContainer, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.md]}>
+        <Text style={[ts.headingMedium, { fontWeight: '700', textAlign: 'center', marginBottom: Spacing.sm }]}>
+          {lang === 'th' ? 'QR จับคู่อุปกรณ์' : 'Device Pairing QR'}
+        </Text>
+        <Text style={[ts.bodySmall, { textAlign: 'center', marginBottom: Spacing.lg, color: colors.textMuted }]}>
+          {lang === 'th'
+            ? 'ให้แอดมิน Thaiprompt สแกน QR นี้\nเพื่อจับคู่อุปกรณ์กับระบบ'
+            : 'Let Thaiprompt admin scan this QR\nto pair this device with the system'}
+        </Text>
+
+        {generatingQR ? (
+          <View style={s.qrPlaceholder}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[ts.bodySmall, { marginTop: Spacing.md, color: colors.textMuted }]}>
+              {lang === 'th' ? 'กำลังสร้าง QR...' : 'Generating QR...'}
             </Text>
           </View>
+        ) : qrString ? (
+          <View style={s.qrCodeWrapper}>
+            <View style={[s.qrCodeBox, { backgroundColor: '#ffffff' }]}>
+              {QRCode ? (
+                <QRCode value={qrString} size={200} backgroundColor="#ffffff" color="#000000" />
+              ) : (
+                <View style={s.qrFallback}>
+                  <Text style={[s.qrFallbackIcon]}>{'⬡'}</Text>
+                  <Text style={[s.qrFallbackText]}>QR Code</Text>
+                  <Text style={[s.qrFallbackSub]}>v{APP_VERSION}</Text>
+                </View>
+              )}
+            </View>
 
-          {/* Action Buttons */}
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleDemoScan} activeOpacity={0.7}>
-              <Text style={styles.primaryButtonText}>
-                🎬 {lang === 'th' ? 'ทดสอบจับคู่' : 'Demo Pairing'}
-              </Text>
-            </TouchableOpacity>
+            {/* Timer */}
+            {timeLeft > 0 && (
+              <View style={[s.timerBadge, {
+                backgroundColor: timeLeft < 300 ? colors.danger + '15' : colors.primary + '15',
+              }]}>
+                <Text style={[ts.labelSmall, {
+                  color: timeLeft < 300 ? colors.danger : colors.primary,
+                  fontFamily: 'monospace',
+                }]}>
+                  {lang === 'th' ? 'หมดอายุใน' : 'Expires in'} {formatTime(timeLeft)}
+                </Text>
+              </View>
+            )}
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setState(prev => ({ ...prev, mode: 'manual' }))}
-              activeOpacity={0.7}>
-              <Text style={styles.secondaryButtonText}>
-                ⌨️ {lang === 'th' ? 'ป้อนรหัสเชื่อมต่อ' : 'Enter Connection Code'}
-              </Text>
-            </TouchableOpacity>
+            {timeLeft <= 0 && !generatingQR && (
+              <View style={[s.timerBadge, { backgroundColor: colors.danger + '15' }]}>
+                <Text style={[ts.labelSmall, { color: colors.danger }]}>
+                  {lang === 'th' ? 'QR หมดอายุแล้ว' : 'QR has expired'}
+                </Text>
+              </View>
+            )}
           </View>
-        </ScrollView>
+        ) : (
+          <View style={s.qrPlaceholder}>
+            <Text style={{ fontSize: 48, marginBottom: Spacing.sm }}>{'⬡'}</Text>
+            <Text style={[ts.bodySmall, { color: colors.textMuted }]}>
+              {lang === 'th' ? 'กดสร้าง QR ด้านล่าง' : 'Tap Generate below'}
+            </Text>
+          </View>
+        )}
       </View>
-    );
-  }
+
+      {/* Device Info */}
+      {deviceQR && (
+        <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <InfoRow label={lang === 'th' ? 'อุปกรณ์' : 'Device ID'} value={deviceQR.device_id} mono colors={colors} ts={ts} />
+          <InfoRow label={lang === 'th' ? 'แอพ' : 'App'} value={`${deviceQR.app_name} v${deviceQR.app_version}`} colors={colors} ts={ts} />
+          <InfoRow label={lang === 'th' ? 'แพลตฟอร์ม' : 'Platform'} value={deviceQR.platform} colors={colors} ts={ts} />
+          <InfoRow label={lang === 'th' ? 'สร้างเมื่อ' : 'Generated'}
+            value={new Date(deviceQR.generated_at).toLocaleTimeString(lang === 'th' ? 'th-TH' : 'en-US')}
+            isLast colors={colors} ts={ts} />
+        </View>
+      )}
+
+      {/* Action Buttons */}
+      <View style={s.btnGroup}>
+        <TouchableOpacity
+          style={[s.primaryBtn, { backgroundColor: colors.primary }, Shadow.sm]}
+          onPress={handleGenerateQR}
+          activeOpacity={0.7}>
+          <Text style={[s.btnText, { color: '#fff' }]}>
+            {deviceQR ? (lang === 'th' ? 'สร้าง QR ใหม่' : 'Regenerate QR') : (lang === 'th' ? 'สร้าง QR Code' : 'Generate QR Code')}
+          </Text>
+        </TouchableOpacity>
+
+        {qrString ? (
+          <TouchableOpacity
+            style={[s.secondaryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={handleShareQR}
+            activeOpacity={0.7}>
+            <Text style={[s.btnText, { color: colors.text }]}>
+              {lang === 'th' ? 'แชร์รหัสเชื่อมต่อ' : 'Share Connection Code'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* Instructions */}
+      <View style={[s.instructionBox, { backgroundColor: colors.card, borderLeftColor: colors.primary }]}>
+        <Text style={[ts.bodyMedium, { fontWeight: '600', marginBottom: Spacing.sm }]}>
+          {lang === 'th' ? 'วิธีจับคู่อุปกรณ์' : 'How to Pair Device'}
+        </Text>
+        <Text style={[ts.bodySmall, { color: colors.textSecondary, lineHeight: 24 }]}>
+          {lang === 'th'
+            ? '1. กดปุ่ม "สร้าง QR Code"\n2. แสดง QR ให้แอดมิน Thaiprompt\n3. แอดมินสแกน QR จากหน้าจัดการ NFC\n4. ระบบจะจับคู่อุปกรณ์อัตโนมัติ'
+            : '1. Tap "Generate QR Code"\n2. Show QR to Thaiprompt admin\n3. Admin scans from NFC Management page\n4. Device will be paired automatically'}
+        </Text>
+      </View>
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
+
+  // ──────────────────────────────────────────────
+  //  SCAN QR TAB — Main (idle)
+  // ──────────────────────────────────────────────
+  const renderScanIdle = () => (
+    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Pairing Status */}
+      {state.isPaired && (
+        <View style={[s.statusCard, { backgroundColor: colors.card, borderColor: colors.success + '40' }]}>
+          <View style={[s.statusDot, { backgroundColor: colors.success }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[ts.labelSmall, { color: colors.success, textTransform: 'uppercase' }]}>
+              {lang === 'th' ? 'เชื่อมต่อแล้ว' : 'Connected'}
+            </Text>
+            <Text style={[ts.bodyLarge, { fontWeight: '600' }]}>{state.currentOrg || 'Thaiprompt'}</Text>
+            <Text style={[ts.bodySmall, { color: colors.textMuted, marginTop: 2 }]}>{state.currentApiUrl}</Text>
+          </View>
+          <TouchableOpacity
+            style={[s.unpairBtn, { borderColor: colors.danger + '60' }]}
+            onPress={handleUnpair}>
+            <Text style={[ts.labelSmall, { color: colors.danger }]}>
+              {lang === 'th' ? 'ยกเลิก' : 'Unpair'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Scanner Area */}
+      <View style={s.scannerWrap}>
+        <View style={[s.scannerFrame, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.md]}>
+          <View style={[s.scanArea, { backgroundColor: colors.bg }]}>
+            <View style={[s.corner, s.topLeft, { borderColor: colors.primary }]} />
+            <View style={[s.corner, s.topRight, { borderColor: colors.primary }]} />
+            <View style={[s.corner, s.bottomLeft, { borderColor: colors.primary }]} />
+            <View style={[s.corner, s.bottomRight, { borderColor: colors.primary }]} />
+            <Animated.View style={[s.scanLine, { top: scanLinePos as any, backgroundColor: colors.primary }]} />
+            <Text style={[ts.bodySmall, { color: colors.textMuted, textAlign: 'center', lineHeight: 22 }]}>
+              {lang === 'th'
+                ? 'สแกน QR จากหน้าแอดมิน\nThaiprompt เพื่อจับคู่แอพ'
+                : 'Scan QR from Thaiprompt\nadmin panel to pair app'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={s.btnGroup}>
+        <TouchableOpacity
+          style={[s.primaryBtn, { backgroundColor: colors.primary }, Shadow.sm]}
+          onPress={handleDemoScan}
+          activeOpacity={0.7}>
+          <Text style={[s.btnText, { color: '#fff' }]}>
+            {lang === 'th' ? 'ทดสอบจับคู่ (Demo)' : 'Demo Pairing'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.secondaryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => setState(prev => ({ ...prev, scanMode: 'manual' }))}
+          activeOpacity={0.7}>
+          <Text style={[s.btnText, { color: colors.text }]}>
+            {lang === 'th' ? 'ป้อนรหัสเชื่อมต่อ' : 'Enter Connection Code'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Instructions */}
+      <View style={[s.instructionBox, { backgroundColor: colors.card, borderLeftColor: colors.primary }]}>
+        <Text style={[ts.bodyMedium, { fontWeight: '600', marginBottom: Spacing.sm }]}>
+          {lang === 'th' ? 'วิธีสแกน QR จากแอดมิน' : 'How to Scan Admin QR'}
+        </Text>
+        <Text style={[ts.bodySmall, { color: colors.textSecondary, lineHeight: 24 }]}>
+          {lang === 'th'
+            ? '1. เปิดหน้าแอดมิน Thaiprompt\n2. ไปที่ NFC Management → สร้าง QR จับคู่\n3. สแกน QR หรือป้อนรหัสเชื่อมต่อ\n4. แอพจะตั้งค่า API อัตโนมัติ'
+            : '1. Open Thaiprompt admin panel\n2. Go to NFC Management → Generate Pairing QR\n3. Scan QR or enter connection code\n4. App will auto-configure API'}
+        </Text>
+      </View>
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
 
   // ──────────────────────────────────────────────
   //  MANUAL INPUT MODE
   // ──────────────────────────────────────────────
-  if (state.mode === 'manual') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
-        <Header title={lang === 'th' ? 'ป้อนรหัสเชื่อมต่อ' : 'Enter Code'} />
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>
-              {lang === 'th' ? 'รหัส JSON จาก QR' : 'QR JSON Code'}
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              value={manualInput}
-              onChangeText={setManualInput}
-              placeholder={lang === 'th' ? 'วาง JSON ที่นี่...' : 'Paste JSON here...'}
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              numberOfLines={8}
-              textAlignVertical="top"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <View style={styles.formatHint}>
-              <Text style={styles.formatHintTitle}>
-                {lang === 'th' ? 'รูปแบบข้อมูล:' : 'Expected format:'}
-              </Text>
-              <Text style={styles.formatHintCode}>
-                {`{\n  "api_url": "https://...",\n  "api_key": "your-key",\n  "device_token": "token",\n  "org_name": "Org Name"\n}`}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={[styles.primaryButton, !manualInput.trim() && styles.buttonDisabled]}
-              onPress={handleManualSubmit}
-              disabled={!manualInput.trim()}
-              activeOpacity={0.7}>
-              <Text style={styles.primaryButtonText}>
-                ✓ {lang === 'th' ? 'ตรวจสอบ' : 'Verify'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleReset} activeOpacity={0.7}>
-              <Text style={styles.secondaryButtonText}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+  const renderManualInput = () => (
+    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={{ marginVertical: Spacing.md }}>
+        <Text style={[ts.labelLarge, { marginBottom: Spacing.sm }]}>
+          {lang === 'th' ? 'รหัส JSON จาก QR' : 'QR JSON Code'}
+        </Text>
+        <TextInput
+          style={[s.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+          value={manualInput}
+          onChangeText={setManualInput}
+          placeholder={lang === 'th' ? 'วาง JSON ที่นี่...' : 'Paste JSON here...'}
+          placeholderTextColor={colors.textMuted}
+          multiline numberOfLines={8} textAlignVertical="top"
+          autoCapitalize="none" autoCorrect={false}
+        />
+        <View style={[s.formatHint, { backgroundColor: colors.surface, borderLeftColor: colors.primary }]}>
+          <Text style={[ts.labelSmall, { color: colors.primary, marginBottom: Spacing.xs }]}>
+            {lang === 'th' ? 'รูปแบบข้อมูล:' : 'Expected format:'}
+          </Text>
+          <Text style={{ fontSize: 11, fontFamily: 'monospace', color: colors.textSecondary, lineHeight: 18 }}>
+            {`{\n  "api_url": "https://...",\n  "api_key": "your-key",\n  "device_token": "token",\n  "org_name": "Org Name"\n}`}
+          </Text>
+        </View>
       </View>
-    );
-  }
+      <View style={s.btnGroup}>
+        <TouchableOpacity
+          style={[s.primaryBtn, { backgroundColor: colors.primary }, !manualInput.trim() && { opacity: 0.4 }, Shadow.sm]}
+          onPress={handleManualSubmit} disabled={!manualInput.trim()} activeOpacity={0.7}>
+          <Text style={[s.btnText, { color: '#fff' }]}>
+            {lang === 'th' ? 'ตรวจสอบ' : 'Verify'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.secondaryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={handleResetScan} activeOpacity={0.7}>
+          <Text style={[s.btnText, { color: colors.text }]}>
+            {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
 
   // ──────────────────────────────────────────────
-  //  PREVIEW MODE (Confirm before pairing)
+  //  PREVIEW MODE
   // ──────────────────────────────────────────────
-  if (state.mode === 'preview' && state.qrData) {
+  const renderPreview = () => {
+    if (!state.qrData) return null;
     const data = state.qrData;
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
-        <Header title={lang === 'th' ? 'ยืนยันการจับคู่' : 'Confirm Pairing'} />
+      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={[s.previewCard, { backgroundColor: colors.card, borderColor: colors.primary + '30' }, Shadow.md]}>
+          <View style={[s.previewIcon, { backgroundColor: colors.primary + '15' }]}>
+            <Text style={{ fontSize: 36 }}>{'🔗'}</Text>
+          </View>
+          <Text style={[ts.headingMedium, { textAlign: 'center' }]}>
+            {data.org_name || 'Thaiprompt Backend'}
+          </Text>
+          <Text style={[ts.bodySmall, { color: colors.textMuted, marginTop: Spacing.xs }]}>
+            {lang === 'th' ? 'ระบบหลังบ้าน' : 'Backend System'}
+          </Text>
+        </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* Backend Info Card */}
-          <View style={styles.previewCard}>
-            <View style={styles.previewIcon}>
-              <Text style={{ fontSize: 36 }}>🔗</Text>
-            </View>
-            <Text style={styles.previewTitle}>
-              {data.org_name || 'Thaiprompt Backend'}
+        <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.border, marginTop: Spacing.lg }]}>
+          <InfoRow label={lang === 'th' ? 'เซิร์ฟเวอร์' : 'Server'} value={data.api_url} colors={colors} ts={ts} />
+          <InfoRow label={lang === 'th' ? 'องค์กร' : 'Organization'} value={data.org_name || '-'} colors={colors} ts={ts} />
+          <InfoRow label="API Key" value={`${data.api_key.substring(0, 8)}****`} colors={colors} ts={ts} />
+          <InfoRow label={lang === 'th' ? 'สิทธิ์' : 'Permissions'} value={(data.permissions || []).join(', ')} colors={colors} ts={ts} />
+          <InfoRow label={lang === 'th' ? 'หมดอายุ' : 'Expires'}
+            value={new Date(data.expires_at).toLocaleString(lang === 'th' ? 'th-TH' : 'en-US')}
+            isLast colors={colors} ts={ts} />
+        </View>
+
+        <View style={[s.warningBox, { backgroundColor: colors.warning + '12', borderLeftColor: colors.warning }]}>
+          <Text style={[ts.bodySmall, { color: colors.warning, lineHeight: 20 }]}>
+            {lang === 'th'
+              ? '⚠️ การจับคู่จะตั้งค่า API ให้อัตโนมัติ หากเชื่อมต่ออยู่แล้วจะถูกแทนที่'
+              : '⚠️ Pairing will auto-configure API. Existing connection will be replaced.'}
+          </Text>
+        </View>
+
+        <View style={s.btnGroup}>
+          <TouchableOpacity
+            style={[s.primaryBtn, { backgroundColor: colors.success }, Shadow.sm]}
+            onPress={handleConfirmPairing} activeOpacity={0.7}>
+            <Text style={[s.btnText, { color: '#fff' }]}>
+              {lang === 'th' ? 'จับคู่เลย' : 'Pair Now'}
             </Text>
-            <Text style={styles.previewSubtitle}>
-              {lang === 'th' ? 'ระบบหลังบ้าน' : 'Backend System'}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.secondaryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={handleResetScan} activeOpacity={0.7}>
+            <Text style={[s.btnText, { color: colors.text }]}>
+              {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Text>
-          </View>
-
-          {/* Connection Details */}
-          <View style={styles.detailsCard}>
-            <DetailRow
-              label={lang === 'th' ? 'เซิร์ฟเวอร์' : 'Server'}
-              value={data.api_url}
-            />
-            <DetailRow
-              label={lang === 'th' ? 'องค์กร' : 'Organization'}
-              value={data.org_name || '-'}
-            />
-            <DetailRow
-              label="API Key"
-              value={`${data.api_key.substring(0, 8)}****`}
-            />
-            <DetailRow
-              label={lang === 'th' ? 'สิทธิ์' : 'Permissions'}
-              value={(data.permissions || []).join(', ')}
-            />
-            <DetailRow
-              label={lang === 'th' ? 'หมดอายุ' : 'Expires'}
-              value={new Date(data.expires_at).toLocaleString(
-                lang === 'th' ? 'th-TH' : 'en-US'
-              )}
-              isLast
-            />
-          </View>
-
-          {/* Warning */}
-          <View style={styles.warningBox}>
-            <Text style={styles.warningText}>
-              {lang === 'th'
-                ? '⚠️ การจับคู่จะตั้งค่า API ให้อัตโนมัติ หากเชื่อมต่ออยู่แล้วจะถูกแทนที่'
-                : '⚠️ Pairing will auto-configure API settings. Existing connection will be replaced.'}
-            </Text>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity style={styles.successButton} onPress={handleConfirmPairing} activeOpacity={0.7}>
-              <Text style={styles.primaryButtonText}>
-                🔗 {lang === 'th' ? 'จับคู่เลย' : 'Pair Now'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleReset} activeOpacity={0.7}>
-              <Text style={styles.secondaryButtonText}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     );
-  }
+  };
 
   // ──────────────────────────────────────────────
   //  PAIRING IN PROGRESS
   // ──────────────────────────────────────────────
-  if (state.mode === 'pairing') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
-        <View style={styles.centerContent}>
-          <View style={styles.pairingAnimation}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-          </View>
-          <Text style={styles.pairingText}>
-            {lang === 'th' ? 'กำลังจับคู่กับระบบหลังบ้าน...' : 'Pairing with backend system...'}
-          </Text>
-          <Text style={styles.pairingSubtext}>
-            {lang === 'th' ? 'ตั้งค่า API และลงทะเบียนอุปกรณ์' : 'Configuring API and registering device'}
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  const renderPairing = () => (
+    <View style={[s.centerContent, { backgroundColor: colors.bg }]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[ts.headingSmall, { marginTop: Spacing.xl, textAlign: 'center' }]}>
+        {lang === 'th' ? 'กำลังจับคู่กับระบบหลังบ้าน...' : 'Pairing with backend...'}
+      </Text>
+      <Text style={[ts.bodySmall, { color: colors.textMuted, marginTop: Spacing.sm, textAlign: 'center' }]}>
+        {lang === 'th' ? 'ตั้งค่า API และลงทะเบียนอุปกรณ์' : 'Configuring API and registering device'}
+      </Text>
+    </View>
+  );
 
   // ──────────────────────────────────────────────
   //  RESULT
   // ──────────────────────────────────────────────
-  if (state.mode === 'result') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
-        <View style={styles.centerContent}>
-          <View style={[styles.resultCircle, state.success ? styles.resultSuccess : styles.resultError]}>
-            <Text style={styles.resultIcon}>{state.success ? '✓' : '✕'}</Text>
-          </View>
-          <Text style={[styles.resultTitle, state.success ? { color: Colors.success } : { color: Colors.error }]}>
-            {state.success
-              ? (lang === 'th' ? 'จับคู่สำเร็จ!' : 'Pairing Successful!')
-              : (lang === 'th' ? 'จับคู่ล้มเหลว' : 'Pairing Failed')}
-          </Text>
-          {state.orgName && state.success && (
-            <Text style={styles.resultOrg}>{state.orgName}</Text>
-          )}
-          <Text style={styles.resultMessage}>{state.message}</Text>
-
-          {!state.success && (
-            <View style={[styles.buttonGroup, { width: '100%' }]}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleReset} activeOpacity={0.7}>
-                <Text style={styles.primaryButtonText}>
-                  🔄 {lang === 'th' ? 'ลองอีกครั้ง' : 'Try Again'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton} onPress={handleClose} activeOpacity={0.7}>
-                <Text style={styles.secondaryButtonText}>
-                  {lang === 'th' ? 'ปิด' : 'Close'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+  const renderResult = () => (
+    <View style={[s.centerContent, { backgroundColor: colors.bg }]}>
+      <View style={[s.resultCircle, {
+        backgroundColor: (state.success ? colors.success : colors.danger) + '20',
+      }]}>
+        <Text style={{ fontSize: 44, fontWeight: 'bold', color: colors.text }}>
+          {state.success ? '✓' : '✕'}
+        </Text>
       </View>
-    );
-  }
+      <Text style={[ts.headingMedium, {
+        textAlign: 'center', marginBottom: Spacing.sm,
+        color: state.success ? colors.success : colors.danger,
+      }]}>
+        {state.success
+          ? (lang === 'th' ? 'จับคู่สำเร็จ!' : 'Pairing Successful!')
+          : (lang === 'th' ? 'จับคู่ล้มเหลว' : 'Pairing Failed')}
+      </Text>
+      {state.orgName && state.success && (
+        <Text style={[ts.bodyLarge, { color: colors.primary, fontWeight: '600', marginBottom: Spacing.sm }]}>
+          {state.orgName}
+        </Text>
+      )}
+      <Text style={[ts.bodyMedium, { color: colors.textSecondary, textAlign: 'center', paddingHorizontal: Spacing.lg, marginBottom: Spacing.xl }]}>
+        {state.message}
+      </Text>
+      {!state.success && (
+        <View style={[s.btnGroup, { width: '100%' }]}>
+          <TouchableOpacity
+            style={[s.primaryBtn, { backgroundColor: colors.primary }, Shadow.sm]}
+            onPress={handleResetScan} activeOpacity={0.7}>
+            <Text style={[s.btnText, { color: '#fff' }]}>
+              {lang === 'th' ? 'ลองอีกครั้ง' : 'Try Again'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.secondaryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={handleClose} activeOpacity={0.7}>
+            <Text style={[s.btnText, { color: colors.text }]}>
+              {lang === 'th' ? 'ปิด' : 'Close'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
-  return null;
+  // ──────────────────────────────────────────────
+  //  RENDER SCAN TAB
+  // ──────────────────────────────────────────────
+  const renderScanTab = () => {
+    switch (state.scanMode) {
+      case 'manual': return renderManualInput();
+      case 'preview': return renderPreview();
+      case 'pairing': return renderPairing();
+      case 'result': return renderResult();
+      default: return renderScanIdle();
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  //  MAIN RENDER
+  // ──────────────────────────────────────────────
+  const headerTitle = activeTab === 'generate'
+    ? (lang === 'th' ? 'สร้าง QR จับคู่' : 'Generate Pairing QR')
+    : (state.scanMode === 'manual'
+      ? (lang === 'th' ? 'ป้อนรหัสเชื่อมต่อ' : 'Enter Code')
+      : state.scanMode === 'preview'
+        ? (lang === 'th' ? 'ยืนยันการจับคู่' : 'Confirm Pairing')
+        : (lang === 'th' ? 'จับคู่ระบบ' : 'System Pairing'));
+
+  const showBackToScanIdle = activeTab === 'scan' && state.scanMode !== 'idle' && state.scanMode !== 'pairing';
+
+  return (
+    <View style={[s.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bg} />
+
+      {/* Header */}
+      <View style={[s.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={showBackToScanIdle ? handleResetScan : handleClose}
+          style={s.backBtn}>
+          <Text style={{ fontSize: 22, color: colors.primary }}>{'←'}</Text>
+        </TouchableOpacity>
+        <Text style={[ts.headingMedium, { fontWeight: '700' }]}>{headerTitle}</Text>
+        <View style={{ width: 44 }} />
+      </View>
+
+      {/* Tab Bar (hidden during sub-screens) */}
+      {(activeTab === 'generate' || state.scanMode === 'idle') && <TabBar />}
+
+      {/* Content */}
+      {activeTab === 'generate' ? renderGenerateTab() : renderScanTab()}
+    </View>
+  );
 };
 
 // ──────────────────────────────────────────────
-//  Detail Row Component
+//  Info Row Component
 // ──────────────────────────────────────────────
-const DetailRow = ({ label, value, isLast = false }: { label: string; value: string; isLast?: boolean }) => (
-  <View style={[styles.detailRow, !isLast && styles.detailRowBorder]}>
-    <Text style={styles.detailLabel}>{label}</Text>
-    <Text style={styles.detailValue} numberOfLines={2}>{value}</Text>
+const InfoRow = ({ label, value, isLast = false, mono = false, colors, ts }: {
+  label: string; value: string; isLast?: boolean; mono?: boolean; colors: any; ts: any;
+}) => (
+  <View style={[s.infoRow, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+    <Text style={[ts.bodySmall, { color: colors.textMuted, flex: 1 }]}>{label}</Text>
+    <Text style={[ts.bodySmall, { flex: 2, textAlign: 'right' }, mono && { fontFamily: 'monospace', fontSize: 11 }]}
+      numberOfLines={2}>{value}</Text>
   </View>
 );
 
 // ============================================================
 //  Styles
 // ============================================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
+const s = StyleSheet.create({
+  container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-    backgroundColor: Colors.surface,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+  backBtn: {
+    width: 44, height: 44, justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: {
-    fontSize: 22,
-    color: Colors.secondary,
+  tabBar: {
+    flexDirection: 'row', borderBottomWidth: 1,
   },
-  headerTitle: {
-    ...TextStyles.headingMedium,
-    color: Colors.text,
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: Spacing.md, gap: 6, borderBottomWidth: 3, borderBottomColor: 'transparent',
   },
+  tabActive: { borderBottomWidth: 3 },
+  tabIcon: { fontSize: 16 },
+  tabLabel: { fontSize: FontSizes.sm, fontWeight: '600' },
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, paddingBottom: Spacing.xxl,
   },
   centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
+    flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xl,
   },
 
-  // Status Card (connected)
+  // Status Card
   statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.success + '40',
-    ...Shadow.sm,
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: Radius.lg, padding: Spacing.lg,
+    marginBottom: Spacing.lg, borderWidth: 1,
   },
   statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.success,
-    marginRight: Spacing.md,
+    width: 12, height: 12, borderRadius: 6, marginRight: Spacing.md,
   },
-  statusInfo: { flex: 1 },
-  statusLabel: {
-    ...TextStyles.labelSmall,
-    color: Colors.success,
-    textTransform: 'uppercase',
+  unpairBtn: {
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    borderRadius: Radius.md, borderWidth: 1,
   },
-  statusOrg: {
-    ...TextStyles.bodyLarge,
-    color: Colors.text,
-    fontWeight: '600',
-    marginTop: 2,
+
+  // QR Container
+  qrContainer: {
+    borderRadius: Radius.xl, padding: Spacing.xl, alignItems: 'center',
+    borderWidth: 1, marginBottom: Spacing.lg,
   },
-  statusUrl: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-    marginTop: 2,
+  qrCodeWrapper: { alignItems: 'center' },
+  qrCodeBox: {
+    padding: 16, borderRadius: Radius.lg,
   },
-  statusDate: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-    marginTop: 4,
+  qrPlaceholder: {
+    width: 232, height: 232, justifyContent: 'center', alignItems: 'center',
   },
-  unpairButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.error + '60',
+  qrFallback: {
+    width: 200, height: 200, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#f0f0f0', borderRadius: Radius.md,
   },
-  unpairButtonText: {
-    ...TextStyles.labelSmall,
-    color: Colors.error,
+  qrFallbackIcon: { fontSize: 64, color: '#6366f1' },
+  qrFallbackText: { fontSize: 18, fontWeight: '700', color: '#333', marginTop: 8 },
+  qrFallbackSub: { fontSize: 12, color: '#999', marginTop: 4 },
+  timerBadge: {
+    marginTop: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    borderRadius: Radius.lg,
+  },
+
+  // Info Card
+  infoCard: {
+    borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden', marginBottom: Spacing.lg,
+  },
+  infoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+  },
+
+  // Buttons
+  btnGroup: { marginTop: Spacing.md, gap: Spacing.md },
+  primaryBtn: {
+    borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center',
+  },
+  secondaryBtn: {
+    borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center', borderWidth: 1,
+  },
+  btnText: { fontSize: FontSizes.md, fontWeight: '600' },
+
+  // Instruction
+  instructionBox: {
+    borderRadius: Radius.lg, padding: Spacing.lg,
+    marginTop: Spacing.lg, borderLeftWidth: 4,
   },
 
   // Scanner
-  scannerContainer: {
-    marginVertical: Spacing.md,
-    alignItems: 'center',
-  },
+  scannerWrap: { marginVertical: Spacing.md, alignItems: 'center' },
   scannerFrame: {
-    width: '100%',
-    maxWidth: 300,
-    aspectRatio: 1,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow.md,
+    width: '100%', maxWidth: 300, aspectRatio: 1,
+    borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1,
   },
   scanArea: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-    borderRadius: Radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    flex: 1, borderRadius: Radius.md, justifyContent: 'center', alignItems: 'center',
+    position: 'relative', overflow: 'hidden',
   },
-  corner: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderColor: Colors.primary,
-  },
+  corner: { position: 'absolute', width: 28, height: 28 },
   topLeft: { top: 12, left: 12, borderTopWidth: 3, borderLeftWidth: 3 },
   topRight: { top: 12, right: 12, borderTopWidth: 3, borderRightWidth: 3 },
   bottomLeft: { bottom: 12, left: 12, borderBottomWidth: 3, borderLeftWidth: 3 },
   bottomRight: { bottom: 12, right: 12, borderBottomWidth: 3, borderRightWidth: 3 },
   scanLine: {
-    position: 'absolute',
-    width: '75%',
-    height: 2,
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  scanText: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 22,
+    position: 'absolute', width: '75%', height: 2,
+    shadowOpacity: 0.8, shadowRadius: 8, elevation: 5,
   },
 
-  // Instructions
-  instructionBox: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    marginVertical: Spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  instructionTitle: {
-    ...TextStyles.bodyLarge,
-    color: Colors.text,
-    fontWeight: '600',
-    marginBottom: Spacing.sm,
-  },
-  instructionText: {
-    ...TextStyles.bodySmall,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-
-  // Buttons
-  buttonGroup: {
-    marginTop: Spacing.lg,
-    gap: Spacing.md,
-  },
-  primaryButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md + 2,
-    alignItems: 'center',
-    ...Shadow.sm,
-  },
-  successButton: {
-    backgroundColor: Colors.success,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md + 2,
-    alignItems: 'center',
-    ...Shadow.sm,
-  },
-  secondaryButton: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md + 2,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  buttonDisabled: { opacity: 0.4 },
-  primaryButtonText: {
-    ...TextStyles.labelLarge,
-    color: Colors.text,
-    fontWeight: '600',
-  },
-  secondaryButtonText: {
-    ...TextStyles.labelLarge,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-  },
-
-  // Manual Input
-  inputSection: { marginVertical: Spacing.md },
-  inputLabel: {
-    ...TextStyles.labelLarge,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  textInput: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    color: Colors.text,
-    fontSize: FontSizes.sm,
-    fontFamily: 'monospace',
-    minHeight: 160,
-  },
-  formatHint: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    marginTop: Spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  formatHintTitle: {
-    ...TextStyles.labelSmall,
-    color: Colors.primary,
-    marginBottom: Spacing.xs,
-  },
-  formatHintCode: {
-    fontSize: 11,
-    fontFamily: 'monospace',
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-
-  // Preview Card
+  // Preview
   previewCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
-    ...Shadow.md,
+    borderRadius: Radius.xl, padding: Spacing.xl, alignItems: 'center', borderWidth: 1,
   },
   previewIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  previewTitle: {
-    ...TextStyles.headingMedium,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  previewSubtitle: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-    marginTop: Spacing.xs,
-  },
-
-  // Details Card
-  detailsCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    marginTop: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  detailRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  detailLabel: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-    flex: 1,
-  },
-  detailValue: {
-    ...TextStyles.bodySmall,
-    color: Colors.text,
-    flex: 2,
-    textAlign: 'right',
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.md,
   },
 
   // Warning
   warningBox: {
-    backgroundColor: Colors.warning + '12',
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    marginTop: Spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.warning,
-  },
-  warningText: {
-    ...TextStyles.bodySmall,
-    color: Colors.warning,
-    lineHeight: 20,
-  },
-
-  // Pairing animation
-  pairingAnimation: { marginBottom: Spacing.xl },
-  pairingText: {
-    ...TextStyles.headingSmall,
-    color: Colors.text,
-    marginTop: Spacing.lg,
-    textAlign: 'center',
-  },
-  pairingSubtext: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-    marginTop: Spacing.sm,
-    textAlign: 'center',
+    borderRadius: Radius.md, padding: Spacing.md, marginTop: Spacing.lg, borderLeftWidth: 4,
   },
 
   // Result
   resultCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
+    width: 96, height: 96, borderRadius: 48,
+    justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.lg,
   },
-  resultSuccess: { backgroundColor: Colors.success + '20' },
-  resultError: { backgroundColor: Colors.error + '20' },
-  resultIcon: {
-    fontSize: 44,
-    fontWeight: 'bold',
-    color: Colors.text,
+
+  // Text Input
+  textInput: {
+    borderRadius: Radius.md, borderWidth: 1,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
+    fontSize: FontSizes.sm, fontFamily: 'monospace', minHeight: 160,
   },
-  resultTitle: {
-    ...TextStyles.headingMedium,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
-  },
-  resultOrg: {
-    ...TextStyles.bodyLarge,
-    color: Colors.secondary,
-    fontWeight: '600',
-    marginBottom: Spacing.sm,
-  },
-  resultMessage: {
-    ...TextStyles.bodyMedium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.xl,
+  formatHint: {
+    borderRadius: Radius.md, padding: Spacing.md,
+    marginTop: Spacing.md, borderLeftWidth: 4,
   },
 });
 

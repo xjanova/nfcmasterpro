@@ -120,7 +120,7 @@ const DashboardScreen: React.FC = () => {
             contentContainerStyle={{ paddingHorizontal: Spacing.xl, gap: Spacing.md }}>
             {[
               { key: 'scan', icon: '📡', label: 'Scan' },
-              { key: 'qrscanner', icon: '🔗', label: 'Pair' },
+              { key: 'qrscanner', icon: '⬡', label: 'QR Pair' },
               { key: 'register', icon: '💳', label: 'Register' },
               { key: 'member', icon: '👤', label: 'Member' },
               { key: 'topup', icon: '💰', label: 'Top Up' },
