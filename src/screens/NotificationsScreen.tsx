@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,10 +30,6 @@ const NotificationsScreen: React.FC = () => {
       console.error('Error loading notifications:', error);
     }
   }, []);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
 
   useFocusEffect(
     useCallback(() => {

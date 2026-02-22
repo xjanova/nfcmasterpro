@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -52,7 +52,6 @@ const CardsScreen: React.FC = () => {
     setFilteredCards(result);
   };
 
-  useEffect(() => { loadCards(); }, []);
   useFocusEffect(useCallback(() => { loadCards(); }, [loadCards]));
 
   const onRefresh = async () => { setRefreshing(true); await loadCards(); setRefreshing(false); };

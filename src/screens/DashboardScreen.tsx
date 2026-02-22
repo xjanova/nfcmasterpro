@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -61,7 +61,6 @@ const DashboardScreen: React.FC = () => {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
   useFocusEffect(useCallback(() => { loadDashboardData(); }, [loadDashboardData]));
 
   const onRefresh = async () => { setRefreshing(true); await loadDashboardData(); setRefreshing(false); };

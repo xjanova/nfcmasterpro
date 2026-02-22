@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -50,12 +50,6 @@ const CardDetailScreen: React.FC = () => {
       setLoading(false);
     }
   }, [cardUID]);
-
-  useEffect(() => {
-    if (cardUID) {
-      loadCardData();
-    }
-  }, [cardUID, loadCardData]);
 
   useFocusEffect(
     useCallback(() => {
