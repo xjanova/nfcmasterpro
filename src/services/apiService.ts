@@ -201,9 +201,9 @@ export const getMembers = async (): Promise<Member[]> => {
 };
 
 /**
- * Get member by ID from API
+ * Get full member profile by ID from API
  */
-export const getMemberById = async (id: string): Promise<Member | null> => {
+export const getMemberProfileById = async (id: string): Promise<Member | null> => {
   try {
     const client = await getClient();
     const response: AxiosResponse<{ data: Member }> = await client.get(
