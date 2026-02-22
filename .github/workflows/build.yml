@@ -105,6 +105,22 @@ jobs:
       # ──────────────────────────────────────────
       # 6. Build Debug APK
       # ──────────────────────────────────────────
+      - name: 📦 Bundle JS into Debug APK
+        working-directory: /tmp/nfc-build
+        run: |
+          # Create assets directory for the JS bundle
+          mkdir -p android/app/src/main/assets
+
+          # Run Metro bundler to create the JS bundle
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res
+
+          echo "✅ JS bundle created ($(du -sh android/app/src/main/assets/index.android.bundle | cut -f1))"
+
       - name: 🔨 Build Debug APK
         working-directory: /tmp/nfc-build/android
         run: |
