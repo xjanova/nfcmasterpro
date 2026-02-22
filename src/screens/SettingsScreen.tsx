@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../utils/i18n';
 import { Colors, Spacing, Radius, FontSizes, TextStyles, Shadow } from '../utils/theme';
 import { APP_VERSION, APP_NAME, STUDIO_NAME, COPYRIGHT_YEAR } from '../utils/constants';
 

@@ -1,29 +1,20 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
-  Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { SplashLogo } from '../components';
 import { Colors, Spacing } from '../utils/theme';
 import { APP_VERSION } from '../utils/constants';
 
-const { height } = Dimensions.get('window');
-
+/**
+ * Splash screen — shown for 2.5 seconds on app launch.
+ * Navigation is handled by AppNavigator (showSplash state),
+ * NOT by this screen (to avoid navigating to unregistered routes).
+ */
 const SplashScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('MainTabs');
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [navigation]);
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />

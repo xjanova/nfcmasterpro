@@ -1,4 +1,5 @@
 import React, { useState, useEffect, ReactNode } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   LanguageContext,
@@ -32,7 +33,6 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         }
       } catch (error) {
         console.warn('Failed to load language preference:', error);
-        // Default to Thai on error
         setLangState('th');
       } finally {
         setIsLoading(false);
@@ -49,7 +49,6 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, newLang);
     } catch (error) {
       console.warn('Failed to save language preference:', error);
-      // Still update state even if storage fails
       setLangState(newLang);
     }
   };
@@ -60,9 +59,13 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     setLang,
   };
 
-  // Don't render children until language is loaded
+  // Show dark loading screen while language preference loads
   if (isLoading) {
-    return null; // Or return a splash screen component
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="small" color="#6366f1" />
+      </View>
+    );
   }
 
   return (
@@ -71,5 +74,14 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     </LanguageContext.Provider>
   );
 };
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    backgroundColor: '#0a0a0f',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
 
 export default LanguageProvider;
