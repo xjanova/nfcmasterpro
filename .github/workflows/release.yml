@@ -123,7 +123,10 @@ jobs:
       # ──────────────────────────────────────────
       - name: 📲 Install npm dependencies
         working-directory: /tmp/nfc-release
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          # Strip exports field from axios to prevent Metro from resolving to Node.js variant
+          node -e "const p=require('./node_modules/axios/package.json'); delete p.exports; require('fs').writeFileSync('./node_modules/axios/package.json', JSON.stringify(p,null,2)); console.log('✅ Stripped axios exports field');"
 
       # ──────────────────────────────────────────
       # 7. Generate release keystore
