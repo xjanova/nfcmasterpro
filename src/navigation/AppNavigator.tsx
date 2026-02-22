@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList, BottomTabParamList } from '../types';
-import { Colors, Spacing, Radius } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
+import { Spacing, Radius, Shadow, FontSizes } from '../utils/theme';
 
 // Screens
 import SplashScreen from '../screens/SplashScreen';
@@ -30,50 +32,97 @@ const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 // ============================================================
-//  Tab Icons Configuration
+//  Tab Icon Component — clean monochrome design
 // ============================================================
 
-const tabIcons: { [key: string]: string } = {
-  Dashboard: '🏠',
-  Cards: '💳',
-  Members: '👤',
-  Payment: '💰',
-  Settings: '⚙️',
+const tabConfig: { [key: string]: { icon: string; activeIcon: string; label: string } } = {
+  Dashboard: { icon: '○', activeIcon: '●', label: 'Home' },
+  Cards: { icon: '▯', activeIcon: '▮', label: 'Cards' },
+  Members: { icon: '◎', activeIcon: '◉', label: 'Members' },
+  Payment: { icon: '◇', activeIcon: '◆', label: 'Pay' },
+  Settings: { icon: '☰', activeIcon: '☰', label: 'Settings' },
 };
 
-// ============================================================
-//  Custom Tab Bar Component
-// ============================================================
+function TabBarIcon({ name, focused, color }: { name: string; focused: boolean; color: string }) {
+  const { colors } = useTheme();
+  const config = tabConfig[name] || { icon: '●', activeIcon: '●', label: name };
 
-function TabBarIcon({ name, focused }: { name: string; focused: boolean }) {
   return (
-    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-      <Text style={styles.icon}>{tabIcons[name] || '●'}</Text>
+    <View style={[
+      iconStyles.container,
+      focused && [iconStyles.containerActive, { backgroundColor: colors.primaryGlow }],
+    ]}>
+      <Text style={[iconStyles.icon, { color }]}>
+        {focused ? config.activeIcon : config.icon}
+      </Text>
     </View>
   );
 }
 
+const iconStyles = StyleSheet.create({
+  container: {
+    width: 48,
+    height: 32,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  containerActive: {
+    transform: [{ scale: 1.05 }],
+  },
+  icon: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+});
+
 // ============================================================
-//  Bottom Tab Navigator
+//  Bottom Tab Navigator — Floating glass design
 // ============================================================
 
 function MainTabs() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Ensure floating above Android navigation bar
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 0);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ focused }) => (
-          <TabBarIcon name={route.name} focused={focused} />
+        tabBarStyle: {
+          position: 'absolute',
+          bottom: bottomPadding + 8,
+          left: 16,
+          right: 16,
+          height: 64,
+          backgroundColor: colors.tabBarBg,
+          borderRadius: Radius.xxl,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: colors.border,
+          paddingBottom: 0,
+          paddingTop: 6,
+          ...Shadow.lg,
+          elevation: 12,
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+          marginTop: 2,
+          marginBottom: 6,
+        },
+        tabBarIcon: ({ focused, color }) => (
+          <TabBarIcon name={route.name} focused={focused} color={color} />
         ),
       })}>
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ tabBarLabel: 'Dashboard' }}
+        options={{ tabBarLabel: 'Home' }}
       />
       <Tab.Screen
         name="Cards"
@@ -88,7 +137,7 @@ function MainTabs() {
       <Tab.Screen
         name="Payment"
         component={PaymentScreen}
-        options={{ tabBarLabel: 'Payment' }}
+        options={{ tabBarLabel: 'Pay' }}
       />
       <Tab.Screen
         name="Settings"
@@ -105,9 +154,9 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const [showSplash, setShowSplash] = useState(true);
+  const { colors } = useTheme();
 
   useEffect(() => {
-    // Splash screen timer
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 2500);
@@ -116,7 +165,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bg} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {showSplash ? (
           <Stack.Screen name="Splash" component={SplashScreen} />
@@ -153,39 +202,3 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
-
-// ============================================================
-//  Styles
-// ============================================================
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    height: 70,
-    paddingBottom: Spacing.sm,
-    paddingTop: Spacing.sm,
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: Spacing.xs,
-  },
-  iconContainer: {
-    width: 44,
-    height: 36,
-    borderRadius: Radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    transition: 'all 0.3s',
-  },
-  iconContainerActive: {
-    backgroundColor: `rgba(99, 102, 241, 0.2)`,
-  },
-  icon: {
-    fontSize: 20,
-  },
-});

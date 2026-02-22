@@ -7,19 +7,17 @@ import {
   RefreshControl,
   TouchableOpacity,
   StatusBar,
-  FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
-  GradientCard,
   NotificationBadge,
   LanguageToggle,
-  BalanceDisplay,
 } from '../components';
 import { useLanguage } from '../utils/i18n';
-import { Colors, Spacing, Radius, FontSizes, TextStyles } from '../utils/theme';
-import { APP_NAME, DEFAULT_CURRENCY } from '../utils/constants';
+import { useTheme } from '../context/ThemeContext';
+import { createTextStyles, Spacing, Radius, FontSizes, Shadow } from '../utils/theme';
+import { APP_NAME, APP_VERSION, DEFAULT_CURRENCY } from '../utils/constants';
 import * as cardService from '../services/cardService';
 import * as paymentService from '../services/paymentService';
 import * as storageService from '../services/storageService';
@@ -29,15 +27,11 @@ const DashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
+  const { colors, theme, toggleTheme } = useTheme();
+  const ts = createTextStyles(colors);
   const [stats, setStats] = useState<DashboardStats>({
-    totalCards: 0,
-    activeCards: 0,
-    totalMembers: 0,
-    totalBalance: 0,
-    totalTransactions: 0,
-    pvPointsIssued: 0,
-    activeMembers: 0,
-    pendingTransactions: 0,
+    totalCards: 0, activeCards: 0, totalMembers: 0, totalBalance: 0,
+    totalTransactions: 0, pvPointsIssued: 0, activeMembers: 0, pendingTransactions: 0,
   });
   const [recentActivity, setRecentActivity] = useState<Transaction[]>([]);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -52,161 +46,91 @@ const DashboardScreen: React.FC = () => {
         storageService.getNotifications(),
         storageService.getMembers(),
       ]);
-
-      // Calculate stats
       const activeCards = cards.filter(c => c.status === 'active').length;
       const totalBalance = cards.reduce((sum, c) => sum + c.balance, 0);
       const totalPV = cards.reduce((sum, c) => sum + c.pvPoints, 0);
-      const activeMembers = members.length;
       const unreadNotifications = notifications.filter(n => !n.read).length;
-
       setStats({
-        totalCards: cards.length,
-        activeCards,
-        totalMembers: members.length,
-        totalBalance,
-        totalTransactions: transactions.length,
-        pvPointsIssued: totalPV,
-        activeMembers,
-        pendingTransactions: 0,
+        totalCards: cards.length, activeCards, totalMembers: members.length, totalBalance,
+        totalTransactions: transactions.length, pvPointsIssued: totalPV, activeMembers: members.length, pendingTransactions: 0,
       });
-
       setRecentActivity(transactions.slice(0, 5));
       setNotificationCount(unreadNotifications);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+  useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
+  useFocusEffect(useCallback(() => { loadDashboardData(); }, [loadDashboardData]));
 
-  useFocusEffect(
-    useCallback(() => {
-      loadDashboardData();
-    }, [loadDashboardData])
-  );
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboardData();
-    setRefreshing(false);
-  };
+  const onRefresh = async () => { setRefreshing(true); await loadDashboardData(); setRefreshing(false); };
 
   const navigateToNFC = (screen: string) => {
-    const screenMap: { [key: string]: any } = {
-      read: 'ReadNFC',
-      write: 'WriteNFC',
-      clone: 'CloneNFC',
-      hex: 'HexView',
-    };
-    navigation.navigate(screenMap[screen] || 'Dashboard');
+    const m: Record<string, string> = { read: 'ReadNFC', write: 'WriteNFC', clone: 'CloneNFC', hex: 'HexView' };
+    navigation.navigate(m[screen] || 'Dashboard');
   };
 
   const handleQuickAction = (action: string) => {
-    const actionMap: { [key: string]: string } = {
-      scan: 'ReadNFC',
-      qrscanner: 'QRScanner',
-      register: 'CardDetail',
-      member: 'MemberRegister',
-      topup: 'Payment',
-    };
-    navigation.navigate(actionMap[action] || 'Dashboard');
+    const m: Record<string, string> = { scan: 'ReadNFC', qrscanner: 'QRScanner', register: 'CardDetail', member: 'MemberRegister', topup: 'Payment' };
+    navigation.navigate(m[action] || 'Dashboard');
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bg} />
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-          />
-        }>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>{APP_NAME}</Text>
-            <Text style={styles.subtitle}>v2.0</Text>
+            <Text style={[ts.headingLarge, { fontWeight: '800', marginBottom: 2 }]}>{APP_NAME}</Text>
+            <Text style={ts.bodySmall}>v{APP_VERSION}</Text>
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications')}
-              style={styles.notificationButton}>
-              <Text style={styles.bellIcon}>🔔</Text>
-              {notificationCount > 0 && (
-                <NotificationBadge count={notificationCount} />
-              )}
+            <TouchableOpacity onPress={toggleTheme}
+              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 16 }}>{theme === 'dark' ? '☀' : '☾'}</Text>
             </TouchableOpacity>
-            <View style={styles.languageToggleWrapper}>
-              <LanguageToggle compact />
-            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('Notifications')}
+              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 16 }}>{'🔔'}</Text>
+              {notificationCount > 0 && <NotificationBadge count={notificationCount} />}
+            </TouchableOpacity>
+            <LanguageToggle compact />
           </View>
         </View>
 
-        {/* Stats Grid */}
+        {/* Stats */}
         <View style={styles.statsSection}>
           <View style={styles.statsRow}>
-            <GradientCard
-              icon="💳"
-              value={stats.totalCards.toString()}
-              label={t['dashboard.totalCards']}
-              style={styles.statCard}
-            />
-            <GradientCard
-              icon="👤"
-              value={stats.totalMembers.toString()}
-              label={t['dashboard.totalMembers']}
-              style={styles.statCard}
-            />
+            <StatCard icon="💳" value={String(stats.totalCards)} label={t['dashboard.totalCards']} colors={colors} />
+            <StatCard icon="👤" value={String(stats.totalMembers)} label={t['dashboard.totalMembers']} colors={colors} />
           </View>
           <View style={styles.statsRow}>
-            <GradientCard
-              icon="💰"
-              value={`${stats.totalBalance} ${DEFAULT_CURRENCY}`}
-              label={t['cards.balance']}
-              style={styles.statCard}
-            />
-            <GradientCard
-              icon="⭐"
-              value={stats.pvPointsIssued.toString()}
-              label={t['cards.pvPoints']}
-              style={styles.statCard}
-            />
+            <StatCard icon="💰" value={`${DEFAULT_CURRENCY}${stats.totalBalance}`} label={t['cards.balance']} colors={colors} />
+            <StatCard icon="⭐" value={String(stats.pvPointsIssued)} label={t['cards.pvPoints']} colors={colors} />
           </View>
         </View>
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t['dashboard.quickScan']}</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.quickActionsScroll}
-            contentContainerStyle={styles.quickActionsContent}>
+          <Text style={[ts.headingMedium, { fontWeight: '700', marginBottom: Spacing.md }]}>{t['dashboard.quickScan']}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -Spacing.xl }}
+            contentContainerStyle={{ paddingHorizontal: Spacing.xl, gap: Spacing.md }}>
             {[
-              { key: 'scan', icon: '🔍', label: 'Scan' },
+              { key: 'scan', icon: '📡', label: 'Scan' },
               { key: 'qrscanner', icon: '🔗', label: 'Pair' },
               { key: 'register', icon: '💳', label: 'Register' },
               { key: 'member', icon: '👤', label: 'Member' },
               { key: 'topup', icon: '💰', label: 'Top Up' },
-            ].map(action => (
-              <TouchableOpacity
-                key={action.key}
-                style={styles.quickActionButton}
-                onPress={() => handleQuickAction(action.key)}>
-                <View style={styles.quickActionIcon}>
-                  <Text style={styles.quickActionIconText}>{action.icon}</Text>
+            ].map(a => (
+              <TouchableOpacity key={a.key} style={styles.qaBtn} onPress={() => handleQuickAction(a.key)}>
+                <View style={[styles.qaIcon, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+                  <Text style={{ fontSize: 26 }}>{a.icon}</Text>
                 </View>
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
+                <Text style={[styles.qaLabel, { color: colors.textSecondary }]}>{a.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -215,266 +139,100 @@ const DashboardScreen: React.FC = () => {
         {/* Recent Activity */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t['dashboard.recentActivity']}</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('TransactionHistory')}>
-              <Text style={styles.viewAllLink}>View All →</Text>
+            <Text style={[ts.headingMedium, { fontWeight: '700' }]}>{t['dashboard.recentActivity']}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('TransactionHistory')}>
+              <Text style={{ color: colors.primary, fontSize: FontSizes.sm, fontWeight: '600' }}>View All {'>'}</Text>
             </TouchableOpacity>
           </View>
-
           {recentActivity.length > 0 ? (
-            <View style={styles.activityList}>
+            <View style={[styles.activityList, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
               {recentActivity.map((tx, idx) => (
-                <View
-                  key={tx.id}
-                  style={[
-                    styles.activityItem,
-                    idx !== recentActivity.length - 1 && styles.activityItemBorder,
-                  ]}>
-                  <View style={styles.activityLeft}>
-                    <Text style={styles.activityMemberName}>{tx.memberName || 'Unknown'}</Text>
-                    <Text style={styles.activityTime}>
-                      {new Date(tx.timestamp).toLocaleDateString()}
-                    </Text>
+                <View key={tx.id} style={[styles.activityItem, idx !== recentActivity.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[ts.bodyMedium, { fontWeight: '600', marginBottom: 2 }]}>{tx.memberName || 'Unknown'}</Text>
+                    <Text style={ts.bodySmall}>{new Date(tx.timestamp).toLocaleDateString()}</Text>
                   </View>
-                  <View style={styles.activityRight}>
-                    <Text style={styles.activityAmount}>
-                      {tx.type === 'payment' ? '-' : '+'}
-                      {DEFAULT_CURRENCY}
-                      {tx.amount}
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[ts.bodyMedium, { color: tx.type === 'payment' ? colors.danger : colors.success, fontWeight: '700', fontFamily: 'monospace' }]}>
+                      {tx.type === 'payment' ? '-' : '+'}{DEFAULT_CURRENCY}{tx.amount}
                     </Text>
-                    <Text style={styles.activityType}>
-                      {tx.type === 'payment' ? 'Payment' : 'Top-up'}
-                    </Text>
+                    <Text style={ts.labelSmall}>{tx.type === 'payment' ? 'Payment' : 'Top-up'}</Text>
                   </View>
                 </View>
               ))}
             </View>
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No recent transactions</Text>
+            <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[ts.bodySmall, { textAlign: 'center' }]}>No recent transactions</Text>
             </View>
           )}
         </View>
 
         {/* NFC Tools */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t['dashboard.nfcTools']}</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.nfcToolsScroll}
-            contentContainerStyle={styles.nfcToolsContent}>
+          <Text style={[ts.headingMedium, { fontWeight: '700', marginBottom: Spacing.md }]}>{t['dashboard.nfcTools']}</Text>
+          <View style={styles.nfcGrid}>
             {[
-              { key: 'read', icon: '📡', label: 'Read' },
-              { key: 'write', icon: '✏️', label: 'Write' },
-              { key: 'clone', icon: '📋', label: 'Clone' },
-              { key: 'hex', icon: '🔬', label: 'Hex View' },
+              { key: 'read', icon: '📡', label: 'Read', desc: 'Read NFC tags' },
+              { key: 'write', icon: '✏️', label: 'Write', desc: 'Write data' },
+              { key: 'clone', icon: '📋', label: 'Clone', desc: 'Copy tag data' },
+              { key: 'hex', icon: '🔬', label: 'Hex View', desc: 'Raw hex data' },
             ].map(tool => (
-              <TouchableOpacity
-                key={tool.key}
-                style={styles.nfcToolButton}
+              <TouchableOpacity key={tool.key}
+                style={[styles.nfcCard, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}
                 onPress={() => navigateToNFC(tool.key)}>
-                <View style={styles.nfcToolIcon}>
-                  <Text style={styles.nfcToolIconText}>{tool.icon}</Text>
-                </View>
-                <Text style={styles.nfcToolLabel}>{tool.label}</Text>
+                <Text style={{ fontSize: 32, marginBottom: 4 }}>{tool.icon}</Text>
+                <Text style={[ts.bodyMedium, { fontWeight: '600' }]}>{tool.label}</Text>
+                <Text style={[ts.labelSmall, { textAlign: 'center' }]}>{tool.desc}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>xman studio</Text>
+          <Text style={[ts.bodySmall, { color: colors.textMuted }]}>xman studio</Text>
         </View>
+        <View style={{ height: 90 }} />
       </ScrollView>
     </View>
   );
 };
 
+const StatCard: React.FC<{ icon: string; value: string; label: string; colors: any }> = ({ icon, value, label, colors }) => (
+  <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+    <Text style={{ fontSize: 22, marginBottom: 4 }}>{icon}</Text>
+    <Text style={{ fontSize: FontSizes.xxl, fontWeight: '800', color: colors.text }}>{value}</Text>
+    <Text style={{ fontSize: FontSizes.xs, fontWeight: '500', color: colors.textMuted }}>{label}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xxl,
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: Spacing.xxl },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.xl,
   },
-  title: {
-    ...TextStyles.headingLarge,
-    marginBottom: Spacing.xs,
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  iconBtn: {
+    width: 38, height: 38, borderRadius: Radius.md,
+    borderWidth: 1, justifyContent: 'center', alignItems: 'center',
   },
-  subtitle: {
-    ...TextStyles.bodySmall,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  notificationButton: {
-    padding: Spacing.sm,
-    position: 'relative',
-  },
-  bellIcon: {
-    fontSize: 24,
-  },
-  languageToggleWrapper: {
-    marginLeft: Spacing.sm,
-  },
-  statsSection: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  statCard: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    ...TextStyles.headingMedium,
-    marginBottom: Spacing.md,
-  },
-  viewAllLink: {
-    color: Colors.primary,
-    fontSize: FontSizes.sm,
-    fontWeight: '600',
-  },
-  quickActionsScroll: {
-    marginHorizontal: -Spacing.lg,
-  },
-  quickActionsContent: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-  },
-  quickActionButton: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  quickActionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickActionIconText: {
-    fontSize: 28,
-  },
-  quickActionLabel: {
-    ...TextStyles.labelMedium,
-    textAlign: 'center',
-    width: 56,
-  },
-  activityList: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    overflow: 'hidden',
-  },
-  activityItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  activityItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  activityLeft: {
-    flex: 1,
-  },
-  activityMemberName: {
-    ...TextStyles.bodyMedium,
-    marginBottom: Spacing.xs,
-  },
-  activityTime: {
-    ...TextStyles.bodySmall,
-  },
-  activityRight: {
-    alignItems: 'flex-end',
-  },
-  activityAmount: {
-    ...TextStyles.bodyMedium,
-    color: Colors.success,
-    marginBottom: Spacing.xs,
-  },
-  activityType: {
-    ...TextStyles.labelSmall,
-  },
-  nfcToolsScroll: {
-    marginHorizontal: -Spacing.lg,
-  },
-  nfcToolsContent: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-  },
-  nfcToolButton: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  nfcToolIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nfcToolIconText: {
-    fontSize: 32,
-  },
-  nfcToolLabel: {
-    ...TextStyles.labelMedium,
-    textAlign: 'center',
-    width: 64,
-  },
-  emptyState: {
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    ...TextStyles.bodySmall,
-  },
-  footer: {
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-  },
-  footerText: {
-    ...TextStyles.bodySmall,
-    color: Colors.textMuted,
-  },
+  statsSection: { paddingHorizontal: Spacing.xl, gap: Spacing.md, marginBottom: Spacing.xl },
+  statsRow: { flexDirection: 'row', gap: Spacing.md },
+  statCard: { flex: 1, borderRadius: Radius.lg, padding: Spacing.lg, borderWidth: 1, alignItems: 'center', gap: 2 },
+  section: { paddingHorizontal: Spacing.xl, marginBottom: Spacing.xl },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  qaBtn: { alignItems: 'center', gap: Spacing.sm },
+  qaIcon: { width: 56, height: 56, borderRadius: Radius.lg, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  qaLabel: { fontSize: FontSizes.xs, fontWeight: '600', textAlign: 'center', width: 56 },
+  activityList: { borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1 },
+  activityItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  empty: { paddingVertical: Spacing.xxl, alignItems: 'center', borderRadius: Radius.lg, borderWidth: 1 },
+  nfcGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  nfcCard: { width: '47%', borderRadius: Radius.lg, padding: Spacing.lg, borderWidth: 1, alignItems: 'center', gap: Spacing.xs },
+  footer: { paddingVertical: Spacing.xl, alignItems: 'center' },
 });
 
 export default DashboardScreen;

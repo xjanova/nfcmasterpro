@@ -1,39 +1,10 @@
-// Premium Dark Theme for NFCMasterPro v2.0
+// Theme System for NFCMasterPro v2.0.3
+// Supports both Dark and Light modes via ThemeContext
 
-export const Colors = {
-  // Core Background
-  bg: '#0a0a0f',
-  surface: '#12121a',
-  card: '#1a1a26',
-  border: '#2a2a40',
+import { ThemeColors, DarkColors, LightColors } from '../context/ThemeContext';
 
-  // Primary & Secondary
-  primary: '#6366f1',
-  primaryGlow: 'rgba(99, 102, 241, 0.3)',
-  secondary: '#22d3ee',
-  secondaryGlow: 'rgba(34, 211, 238, 0.2)',
-
-  // Status Colors
-  success: '#10b981',
-  successGlow: 'rgba(16, 185, 129, 0.2)',
-  warning: '#f59e0b',
-  warningGlow: 'rgba(245, 158, 11, 0.2)',
-  danger: '#ef4444',
-  dangerGlow: 'rgba(239, 68, 68, 0.2)',
-
-  // Premium Element
-  gold: '#fbbf24',
-  goldGlow: 'rgba(251, 191, 36, 0.2)',
-
-  // Text Colors
-  text: '#f1f5f9',
-  textSecondary: '#cbd5e1',
-  textMuted: '#64748b',
-  textDim: '#94a3b8',
-
-  // Utility
-  overlay: 'rgba(0, 0, 0, 0.7)',
-};
+// Re-export for backward compatibility — default to dark
+export const Colors = DarkColors;
 
 export const Gradient = {
   primary: ['#6366f1', '#8b5cf6'],
@@ -75,7 +46,6 @@ export const Shadow = {
 };
 
 export const Typography = {
-  // Font families
   mono: 'JetBrains Mono',
   sans: 'Inter',
 };
@@ -123,84 +93,87 @@ export const Opacity = {
   active: 1,
 };
 
-// Preset Typography Styles
-export const TextStyles = {
+// Dynamic text styles builder for themed colors
+export const createTextStyles = (c: ThemeColors) => ({
   displayLarge: {
     fontSize: FontSizes.display,
     lineHeight: FontSizes.display * 1.2,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   headingXL: {
     fontSize: FontSizes.xxxl,
     lineHeight: FontSizes.xxxl * 1.2,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   headingLarge: {
     fontSize: FontSizes.xxl,
     lineHeight: FontSizes.xxl * 1.3,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   headingMedium: {
     fontSize: FontSizes.xl,
     lineHeight: FontSizes.xl * 1.4,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   bodyLarge: {
     fontSize: FontSizes.lg,
     lineHeight: FontSizes.lg * 1.5,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   bodyMedium: {
     fontSize: FontSizes.md,
     lineHeight: FontSizes.md * 1.5,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   bodySmall: {
     fontSize: FontSizes.sm,
     lineHeight: FontSizes.sm * 1.5,
     fontFamily: Typography.sans,
-    color: Colors.textMuted,
+    color: c.textMuted,
   },
   labelLarge: {
     fontSize: FontSizes.md,
     lineHeight: FontSizes.md * 1.4,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   labelMedium: {
     fontSize: FontSizes.sm,
     lineHeight: FontSizes.sm * 1.4,
     fontFamily: Typography.sans,
-    color: Colors.text,
+    color: c.text,
   },
   labelSmall: {
     fontSize: FontSizes.xs,
     lineHeight: FontSizes.xs * 1.4,
     fontFamily: Typography.sans,
-    color: Colors.textMuted,
+    color: c.textMuted,
   },
   monoLarge: {
     fontSize: FontSizes.lg,
     lineHeight: FontSizes.lg * 1.5,
     fontFamily: Typography.mono,
-    color: Colors.secondary,
+    color: c.secondary,
   },
   monoMedium: {
     fontSize: FontSizes.md,
     lineHeight: FontSizes.md * 1.5,
     fontFamily: Typography.mono,
-    color: Colors.secondary,
+    color: c.secondary,
   },
   monoSmall: {
     fontSize: FontSizes.sm,
     lineHeight: FontSizes.sm * 1.5,
     fontFamily: Typography.mono,
-    color: Colors.textMuted,
+    color: c.textMuted,
   },
-};
+});
+
+// Default TextStyles for backward compatibility (dark theme)
+export const TextStyles = createTextStyles(DarkColors);

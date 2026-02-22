@@ -1,6 +1,6 @@
 // App Information
 export const APP_NAME = 'NFC Master Pro';
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.0.3';
 export const STUDIO_NAME = 'xman studio';
 export const STUDIO_LICENSE = `Produced by ${STUDIO_NAME}`;
 export const COPYRIGHT_YEAR = new Date().getFullYear();
