@@ -214,20 +214,31 @@ export interface PaginatedResponse<T = any> {
 
 // ========== Navigation Types ==========
 
-// ========== QR Scanner Types ==========
+// ========== QR Backend Pairing Types ==========
 
-export interface QRPairingData {
-  card_number: string;
-  pairing_token: string;
+export interface BackendPairingData {
+  api_url: string;
+  api_key: string;
+  device_token: string;
+  org_name?: string;
+  org_id?: string;
   expires_at: string;
-  card_type?: string;
+  permissions?: string[];
 }
 
 export interface PairingResult {
   success: boolean;
   message: string;
-  card?: CardInfo;
-  member?: Member;
+  orgName?: string;
+  connectedAt?: string;
+}
+
+export interface DevicePairing {
+  deviceToken: string;
+  orgName: string;
+  orgId: string;
+  pairedAt: string;
+  permissions: string[];
 }
 
 export type RootStackParamList = {

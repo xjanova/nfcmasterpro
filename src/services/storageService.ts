@@ -201,3 +201,35 @@ export const getMemberById = async (memberId: string): Promise<Member | null> =>
     return null;
   }
 };
+
+// ============================================================
+//  Device Pairing Storage (App-Backend)
+// ============================================================
+
+const DEVICE_PAIRING_KEY = '@device_pairing';
+
+export interface DevicePairing {
+  deviceToken: string;
+  orgName: string;
+  orgId: string;
+  pairedAt: string;
+  permissions: string[];
+}
+
+export const getDevicePairing = async (): Promise<DevicePairing | null> => {
+  try {
+    const json = await AsyncStorage.getItem(DEVICE_PAIRING_KEY);
+    if (!json) return null;
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+export const saveDevicePairing = async (pairing: DevicePairing): Promise<void> => {
+  await AsyncStorage.setItem(DEVICE_PAIRING_KEY, JSON.stringify(pairing));
+};
+
+export const clearDevicePairing = async (): Promise<void> => {
+  await AsyncStorage.removeItem(DEVICE_PAIRING_KEY);
+};

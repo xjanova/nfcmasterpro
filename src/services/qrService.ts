@@ -1,45 +1,88 @@
 /**
- * QR Scanner Service — Handles QR code decoding and NFC card pairing
- * Manages QR payload validation, card verification, and member pairing
+ * QR Service — App-Backend Pairing
+ * สแกน QR จากหน้าแอดมิน Thaiprompt เพื่อจับคู่แอพกับระบบหลังบ้าน
+ * QR code contains API URL, API Key, device token for auto-configuration
  */
 
-import { QRPairingData, PairingResult, CardInfo, Member } from '../types';
-import * as apiService from './apiService';
-import * as cardService from './cardService';
+import { AppSettings } from '../types';
 import * as storageService from './storageService';
+import * as apiService from './apiService';
+
+// ============================================================
+//  Types
+// ============================================================
+
+export interface BackendPairingData {
+  api_url: string;          // Backend API base URL
+  api_key: string;          // API authentication key
+  device_token: string;     // Unique device registration token
+  org_name?: string;        // Organization name
+  org_id?: string;          // Organization ID
+  expires_at: string;       // QR expiration timestamp
+  permissions?: string[];   // Granted permissions
+}
+
+export interface PairingResult {
+  success: boolean;
+  message: string;
+  orgName?: string;
+  connectedAt?: string;
+}
 
 // ============================================================
 //  Decode QR Payload
 // ============================================================
 
 /**
- * Decode and validate QR code payload
- * Expects JSON: {"card_number":"...","pairing_token":"...","expires_at":"..."}
+ * Decode QR payload from Thaiprompt admin panel
+ * Expected JSON format:
+ * {
+ *   "api_url": "https://yourdomain.com/api/v1",
+ *   "api_key": "your-api-key-here",
+ *   "device_token": "unique-device-token",
+ *   "org_name": "My Organization",
+ *   "org_id": "org_123",
+ *   "expires_at": "2026-02-22T23:59:59Z",
+ *   "permissions": ["nfc", "payment", "members"]
+ * }
  */
-export const decodeQRPayload = (rawData: string): QRPairingData | null => {
+export const decodeQRPayload = (rawData: string): BackendPairingData | null => {
   try {
-    // Try to parse as JSON
-    const parsed = JSON.parse(rawData);
+    const trimmed = rawData.trim();
+
+    // Try JSON parse
+    const parsed = JSON.parse(trimmed);
 
     // Validate required fields
-    if (!parsed.card_number || !parsed.pairing_token || !parsed.expires_at) {
-      console.error('[QRService] Missing required fields in QR payload');
+    if (!parsed.api_url || !parsed.api_key || !parsed.device_token) {
+      console.error('[QRService] Missing required fields: api_url, api_key, or device_token');
+      return null;
+    }
+
+    // Validate URL format
+    if (!parsed.api_url.startsWith('http://') && !parsed.api_url.startsWith('https://')) {
+      console.error('[QRService] Invalid API URL format');
       return null;
     }
 
     // Check expiration
-    const expiresAt = new Date(parsed.expires_at);
-    const now = new Date();
-    if (now > expiresAt) {
-      console.error('[QRService] QR Code has expired');
-      return null;
+    if (parsed.expires_at) {
+      const expiresAt = new Date(parsed.expires_at);
+      const now = new Date();
+      if (now > expiresAt) {
+        console.error('[QRService] QR Code has expired');
+        return null;
+      }
     }
 
     return {
-      card_number: parsed.card_number,
-      pairing_token: parsed.pairing_token,
-      expires_at: parsed.expires_at,
-      card_type: parsed.card_type || 'NFC Card',
+      api_url: parsed.api_url,
+      api_key: parsed.api_key,
+      device_token: parsed.device_token,
+      org_name: parsed.org_name || '',
+      org_id: parsed.org_id || '',
+      expires_at: parsed.expires_at || new Date(Date.now() + 3600000).toISOString(),
+      permissions: parsed.permissions || ['nfc', 'payment', 'members'],
     };
   } catch (error) {
     console.error('[QRService] Error decoding QR payload:', error);
@@ -48,233 +91,154 @@ export const decodeQRPayload = (rawData: string): QRPairingData | null => {
 };
 
 // ============================================================
-//  Verify Card via API
+//  Pair App with Backend
 // ============================================================
 
 /**
- * Verify card with Thaiprompt API
- * Calls POST /api/v1/nfc/cards/verify
+ * Complete app-backend pairing flow:
+ * 1. Decode QR data
+ * 2. Save API config to app settings
+ * 3. Register device with backend
+ * 4. Test connection
  */
-export const verifyCard = async (qrData: QRPairingData): Promise<{ success: boolean; card?: CardInfo; error?: string }> => {
+export const pairWithBackend = async (qrData: BackendPairingData): Promise<PairingResult> => {
   try {
-    // Call the API to verify card
-    const client = await (apiService as any).getClient?.();
-
-    if (!client) {
-      // Fallback: simulate verification for demo
-      console.warn('[QRService] API client not available, using demo verification');
-      return {
-        success: true,
-        card: {
-          id: `card_${Date.now()}`,
-          uid: qrData.card_number.replace(/\s+/g, ''),
-          status: 'active',
-          balance: 0,
-          pvPoints: 0,
-          registeredAt: new Date().toISOString(),
-          tagType: qrData.card_type || 'NFC Card',
-        },
-      };
-    }
-
-    // Try to verify through API
-    try {
-      const response = await client.post('/nfc/cards/verify', {
-        card_number: qrData.card_number,
-        pairing_token: qrData.pairing_token,
-      });
-
-      if (response.data?.success) {
-        return {
-          success: true,
-          card: response.data.data,
-        };
-      }
-      return {
-        success: false,
-        error: response.data?.message || 'Card verification failed',
-      };
-    } catch (apiError) {
-      // If API call fails, return demo card
-      console.warn('[QRService] API verification failed, returning demo card');
-      return {
-        success: true,
-        card: {
-          id: `card_${Date.now()}`,
-          uid: qrData.card_number.replace(/\s+/g, ''),
-          status: 'active',
-          balance: 0,
-          pvPoints: 0,
-          registeredAt: new Date().toISOString(),
-          tagType: qrData.card_type || 'NFC Card',
-        },
-      };
-    }
-  } catch (error: any) {
-    console.error('[QRService] Error verifying card:', error);
-    return {
-      success: false,
-      error: error.message || 'Verification failed',
-    };
-  }
-};
-
-// ============================================================
-//  Pair Card with Member
-// ============================================================
-
-/**
- * Pair verified card with a member
- * Calls POST /api/v1/nfc/cards/pair
- */
-export const pairCardWithMember = async (
-  qrData: QRPairingData,
-  memberId: string,
-  card: CardInfo
-): Promise<PairingResult> => {
-  try {
-    // Get member data
-    const member = await storageService.getMemberById(memberId);
-    if (!member) {
-      return {
-        success: false,
-        message: 'Member not found',
-      };
-    }
-
-    // Prepare card data with member link
-    const updatedCard: CardInfo = {
-      ...card,
-      memberId,
-      memberName: member.name,
-    };
-
-    // Register card locally
-    await cardService.registerCard({
-      uid: card.uid,
-      memberId,
-      memberName: member.name,
-      tagType: card.tagType,
+    // Step 1: Save API config to local settings
+    await storageService.saveSettings({
+      apiBaseUrl: qrData.api_url,
+      apiKey: qrData.api_key,
     });
 
-    // Try to pair via API
+    // Save device token and org info
+    await storageService.saveDevicePairing({
+      deviceToken: qrData.device_token,
+      orgName: qrData.org_name || '',
+      orgId: qrData.org_id || '',
+      pairedAt: new Date().toISOString(),
+      permissions: qrData.permissions || [],
+    });
+
+    // Step 2: Re-initialize API client with new config
+    await apiService.initApiClient();
+
+    // Step 3: Register device with backend
     try {
-      const client = await (apiService as any).getClient?.();
-
-      if (client) {
-        try {
-          const response = await client.post('/nfc/cards/pair', {
-            card_number: qrData.card_number,
-            pairing_token: qrData.pairing_token,
-            member_id: memberId,
-          });
-
-          if (response.data?.success) {
-            return {
-              success: true,
-              message: response.data.message || 'Card paired successfully',
-              card: updatedCard,
-              member,
-            };
-          }
-        } catch (apiError) {
-          // Continue with local pairing even if API fails
-          console.warn('[QRService] API pairing failed, using local pairing');
-        }
+      const result = await apiService.registerDevice(qrData.device_token);
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message || 'เชื่อมต่อระบบหลังบ้านสำเร็จ',
+          orgName: qrData.org_name,
+          connectedAt: new Date().toISOString(),
+        };
       }
-    } catch (error) {
-      console.warn('[QRService] API client not available, using local pairing');
+    } catch (apiError) {
+      // API call failed but config saved — still count as partial success
+      console.warn('[QRService] Device registration API failed, but config saved:', apiError);
     }
 
+    // Step 4: Test connection
+    try {
+      const testResult = await apiService.testConnection();
+      if (testResult.connected) {
+        return {
+          success: true,
+          message: `เชื่อมต่อกับ ${qrData.org_name || 'ระบบหลังบ้าน'} สำเร็จ (${testResult.latency}ms)`,
+          orgName: qrData.org_name,
+          connectedAt: new Date().toISOString(),
+        };
+      }
+    } catch (testError) {
+      console.warn('[QRService] Connection test failed:', testError);
+    }
+
+    // Config saved but couldn't confirm connection
     return {
       success: true,
-      message: 'Card paired successfully',
-      card: updatedCard,
-      member,
+      message: `บันทึกการตั้งค่าสำเร็จ — ${qrData.org_name || 'ระบบหลังบ้าน'} (รอเชื่อมต่อ)`,
+      orgName: qrData.org_name,
+      connectedAt: new Date().toISOString(),
     };
   } catch (error: any) {
-    console.error('[QRService] Error pairing card:', error);
+    console.error('[QRService] Pairing failed:', error);
     return {
       success: false,
-      message: error.message || 'Pairing failed',
+      message: error.message || 'การจับคู่ล้มเหลว',
     };
   }
 };
 
 // ============================================================
-//  Generate Demo QR Data
+//  Check Pairing Status
 // ============================================================
 
 /**
- * Generate demo QR data for testing
+ * Check if app is already paired with a backend
  */
-export const generateDemoQRData = (): QRPairingData => {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30); // Valid for 30 days
+export const getPairingStatus = async (): Promise<{
+  isPaired: boolean;
+  orgName?: string;
+  pairedAt?: string;
+  apiUrl?: string;
+}> => {
+  try {
+    const pairing = await storageService.getDevicePairing();
+    if (pairing && pairing.deviceToken) {
+      const settings = await storageService.getSettings();
+      return {
+        isPaired: true,
+        orgName: pairing.orgName,
+        pairedAt: pairing.pairedAt,
+        apiUrl: settings.apiBaseUrl,
+      };
+    }
+    return { isPaired: false };
+  } catch {
+    return { isPaired: false };
+  }
+};
 
-  const cardNumber = `NFC${Date.now().toString().slice(-8)}`;
+// ============================================================
+//  Unpair / Reset
+// ============================================================
+
+/**
+ * Unpair app from backend — reset API config
+ */
+export const unpairFromBackend = async (): Promise<void> => {
+  await storageService.saveSettings({
+    apiBaseUrl: 'https://api.thaiprompt.com/v1',
+    apiKey: '',
+  });
+  await storageService.clearDevicePairing();
+  await apiService.initApiClient();
+};
+
+// ============================================================
+//  Demo QR Data
+// ============================================================
+
+/**
+ * Generate demo QR data for testing the pairing flow
+ */
+export const generateDemoQRData = (): BackendPairingData => {
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 1); // Valid 1 hour
 
   return {
-    card_number: cardNumber,
-    pairing_token: `token_${Math.random().toString(36).substr(2, 20)}`,
+    api_url: 'https://api.thaiprompt.com/v1',
+    api_key: `demo_key_${Math.random().toString(36).substr(2, 16)}`,
+    device_token: `device_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+    org_name: 'Thaiprompt Demo',
+    org_id: 'org_demo_001',
     expires_at: expiresAt.toISOString(),
-    card_type: 'MIFARE Classic 1K',
+    permissions: ['nfc', 'payment', 'members', 'cards'],
   };
 };
 
-// ============================================================
-//  Format Card Number (Mask sensitive data)
-// ============================================================
-
 /**
- * Format and mask card number for display
+ * Generate QR payload string (for testing / admin panel)
  */
-export const formatCardNumber = (cardNumber: string): string => {
-  // Show first 4 and last 4 digits
-  if (cardNumber.length <= 8) return cardNumber;
-  const first4 = cardNumber.substring(0, 4);
-  const last4 = cardNumber.substring(cardNumber.length - 4);
-  return `${first4}****${last4}`;
-};
-
-// ============================================================
-//  Complete Verification and Pairing Flow
-// ============================================================
-
-/**
- * Complete flow: Decode -> Verify -> Pair
- */
-export const verifyAndPairCard = async (
-  rawQRData: string,
-  memberId: string
-): Promise<PairingResult> => {
-  try {
-    // Step 1: Decode QR payload
-    const qrData = decodeQRPayload(rawQRData);
-    if (!qrData) {
-      return {
-        success: false,
-        message: 'Invalid QR Code format',
-      };
-    }
-
-    // Step 2: Verify card
-    const verifyResult = await verifyCard(qrData);
-    if (!verifyResult.success || !verifyResult.card) {
-      return {
-        success: false,
-        message: verifyResult.error || 'Card verification failed',
-      };
-    }
-
-    // Step 3: Pair with member
-    const pairResult = await pairCardWithMember(qrData, memberId, verifyResult.card);
-    return pairResult;
-  } catch (error: any) {
-    console.error('[QRService] Error in verification and pairing flow:', error);
-    return {
-      success: false,
-      message: error.message || 'Operation failed',
-    };
-  }
+export const generateQRPayloadString = (data: BackendPairingData): string => {
+  return JSON.stringify(data, null, 0);
 };

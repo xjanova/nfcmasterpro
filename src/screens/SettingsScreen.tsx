@@ -15,7 +15,7 @@ import { useLanguage } from '../utils/i18n';
 import { Colors, Spacing, Radius, FontSizes, TextStyles, Shadow } from '../utils/theme';
 import { APP_VERSION, APP_NAME, STUDIO_NAME, COPYRIGHT_YEAR } from '../utils/constants';
 
-const SettingsScreen: React.FC = () => {
+const SettingsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { t, lang, setLang } = useLanguage();
 
@@ -243,6 +243,21 @@ const SettingsScreen: React.FC = () => {
 
         {/* API CONFIGURATION */}
         <Section title={t['settings.apiConfig']}>
+          <TouchableOpacity
+            style={styles.qrPairButton}
+            onPress={() => (navigation as any)?.navigate?.('QRScanner')}
+          >
+            <Text style={styles.qrPairButtonIcon}>🔗</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.qrPairButtonText}>
+                {lang === 'th' ? 'สแกน QR จับคู่ระบบ' : 'Scan QR to Pair System'}
+              </Text>
+              <Text style={styles.qrPairButtonHint}>
+                {lang === 'th' ? 'ตั้งค่า API อัตโนมัติจาก Thaiprompt' : 'Auto-configure API from Thaiprompt'}
+              </Text>
+            </View>
+            <Text style={{ color: Colors.textMuted, fontSize: 18 }}>→</Text>
+          </TouchableOpacity>
           <InputRow
             label={t['settings.apiBaseUrl']}
             value={apiBaseUrl}
@@ -695,6 +710,29 @@ const styles = StyleSheet.create({
     ...TextStyles.labelLarge,
     color: Colors.text,
     fontWeight: '600',
+  },
+  qrPairButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.primary + '10',
+  },
+  qrPairButtonIcon: {
+    fontSize: 24,
+    marginRight: Spacing.md,
+  },
+  qrPairButtonText: {
+    ...TextStyles.bodyMedium,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  qrPairButtonHint: {
+    ...TextStyles.bodySmall,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
 });
 

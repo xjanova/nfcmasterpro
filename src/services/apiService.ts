@@ -183,6 +183,31 @@ export const updateApiConfig = async (baseUrl: string, apiKey: string): Promise<
 };
 
 // ============================================================
+//  Register Device (QR Pairing)
+// ============================================================
+
+export const registerDevice = async (deviceToken: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const client = await getClient();
+    const response = await client.post('/nfc/devices/register', {
+      device_token: deviceToken,
+      app_version: '2.0.1',
+      platform: 'android',
+      app_name: 'NFCMasterPro',
+    });
+    return {
+      success: true,
+      message: response.data?.message || 'Device registered',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Device registration failed',
+    };
+  }
+};
+
+// ============================================================
 //  Member API Endpoints
 // ============================================================
 

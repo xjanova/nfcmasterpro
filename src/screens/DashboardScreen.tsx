@@ -192,7 +192,7 @@ const DashboardScreen: React.FC = () => {
             contentContainerStyle={styles.quickActionsContent}>
             {[
               { key: 'scan', icon: '🔍', label: 'Scan' },
-              { key: 'qrscanner', icon: '📱', label: 'QR Code' },
+              { key: 'qrscanner', icon: '🔗', label: 'Pair' },
               { key: 'register', icon: '💳', label: 'Register' },
               { key: 'member', icon: '👤', label: 'Member' },
               { key: 'topup', icon: '💰', label: 'Top Up' },
