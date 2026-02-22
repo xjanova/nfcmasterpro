@@ -55,57 +55,18 @@ jobs:
       #    (RN 0.73.6 scaffold uses AGP 8.1.1 / compileSdk 34,
       #     but newer androidx libs require AGP 8.6.0 / compileSdk 35)
       # ──────────────────────────────────────────
-      - name: 🔧 Patch Android Gradle to AGP 8.6.0 + compileSdk 35
+      - name: 🔧 Patch Android Gradle configs
         run: |
-          python3 - << 'PYEOF'
-          import re, sys
+          # Fix compileSdkVersion + targetSdkVersion to 35
+          sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/' /tmp/nfc-build/android/build.gradle
+          sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/' /tmp/nfc-build/android/build.gradle
 
-          path = '/tmp/nfc-build/android/build.gradle'
-          with open(path) as f:
-              content = f.read()
+          # Force androidx.core to version compatible with AGP 8.1.1
+          # (androidx.core 1.16.0 requires AGP 8.6.0, but RN 0.73 uses AGP 8.1.1)
+          echo "" >> /tmp/nfc-build/android/app/build.gradle
+          echo "configurations.all { resolutionStrategy { force 'androidx.core:core:1.13.1'; force 'androidx.core:core-ktx:1.13.1' } }" >> /tmp/nfc-build/android/app/build.gradle
 
-          print("=== Relevant lines BEFORE patch ===")
-          for line in content.split('\n'):
-              if any(k in line for k in ['android.tools.build', 'compileSdk', 'targetSdk']):
-                  print(f"  {repr(line)}")
-
-          # Replace any AGP version with 8.6.0
-          content = re.sub(
-              r'com\.android\.tools\.build:gradle:[\d.]+',
-              'com.android.tools.build:gradle:8.6.0', content)
-          # Bump compileSdk + targetSdk to 35
-          content = re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 35', content)
-          content = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 35', content)
-
-          with open(path, 'w') as f:
-              f.write(content)
-
-          print("=== Relevant lines AFTER patch ===")
-          with open(path) as f:
-              for line in f:
-                  if any(k in line for k in ['android.tools.build', 'compileSdk', 'targetSdk']):
-                      print(f"  {line.rstrip()}")
-          print("✅ build.gradle patched")
-          PYEOF
-
-          # Update Gradle wrapper to 8.7 (required by AGP 8.6.0)
-          python3 -c "
-          content = '''distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\\\\://services.gradle.org/distributions/gradle-8.7-all.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          '''
-          # Remove leading spaces from each line
-          lines = [l.strip() for l in content.strip().split('\n')]
-          with open('/tmp/nfc-build/android/gradle/wrapper/gradle-wrapper.properties', 'w') as f:
-              f.write('\n'.join(lines) + '\n')
-          print('✅ gradle-wrapper.properties updated to Gradle 8.7')
-          "
-
-          echo "✅ Patch complete"
+          echo "Gradle patches applied (compileSdk=35, androidx.core pinned to 1.13.1)"
 
       # ──────────────────────────────────────────
       # 6. Overlay our custom source code
