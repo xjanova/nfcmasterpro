@@ -27,7 +27,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: 📦 Setup Node.js 18
         uses: actions/setup-node@v4
