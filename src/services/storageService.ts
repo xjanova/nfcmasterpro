@@ -21,6 +21,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSaveHistory: true,
   confirmBeforeWrite: true,
   historyLimit: 500,
+  language: 'th',
+  pvRate: 0.1,
+  lowBalanceThreshold: 100,
+  currency: 'THB',
 };
 
 // ============================================================

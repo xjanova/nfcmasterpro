@@ -22,7 +22,7 @@ const WriteNFCScreen: React.FC = () => {
 
   const startWriting = async () => {
     if (!data) {
-      Alert.alert(t('common.error'), 'Please enter data to write');
+      Alert.alert(t['common.error'], 'Please enter data to write');
       return;
     }
 
@@ -30,7 +30,7 @@ const WriteNFCScreen: React.FC = () => {
     // Simulated NFC write
     setTimeout(() => {
       setWriting(false);
-      Alert.alert(t('nfc.writeSuccess'), 'Data written to tag successfully');
+      Alert.alert(t['nfc.writeSuccess'], 'Data written to tag successfully');
       setData('');
     }, 2000);
   };
@@ -43,13 +43,13 @@ const WriteNFCScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('nfc.writeCard')}</Text>
+        <Text style={styles.title}>{t['nfc.writeCard']}</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.instruction}>
           <Text style={styles.instructionIcon}>✏️</Text>
-          <Text style={styles.instructionText}>{t('nfc.tapCard')}</Text>
+          <Text style={styles.instructionText}>{t['nfc.tapCard']}</Text>
         </View>
 
         <View style={styles.typeSelector}>
@@ -93,7 +93,7 @@ const WriteNFCScreen: React.FC = () => {
           onPress={startWriting}
           disabled={writing}>
           <Text style={styles.writeButtonText}>
-            {writing ? t('nfc.writingData') : 'Write to Tag'}
+            {writing ? t['nfc.writingData'] : 'Write to Tag'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

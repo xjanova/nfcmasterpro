@@ -20,7 +20,7 @@ const PaymentResultScreen: React.FC = () => {
           <Text style={styles.iconText}>✓</Text>
         </View>
 
-        <Text style={styles.title}>{t('payment.paymentSuccess')}</Text>
+        <Text style={styles.title}>{t['payment.paymentSuccess']}</Text>
 
         <View style={styles.details}>
           <DetailRow

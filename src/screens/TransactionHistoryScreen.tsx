@@ -75,7 +75,7 @@ const TransactionHistoryScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('payment.transactionHistory')}</Text>
+        <Text style={styles.title}>{t['payment.transactionHistory']}</Text>
       </View>
 
       {transactions.length > 0 ? (
@@ -94,7 +94,7 @@ const TransactionHistoryScreen: React.FC = () => {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t('payment.noTransactions')}</Text>
+          <Text style={styles.emptyText}>{t['payment.noTransactions']}</Text>
         </View>
       )}
     </View>

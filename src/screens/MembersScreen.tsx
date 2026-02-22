@@ -68,7 +68,7 @@ const MembersScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('members.memberManagement')}</Text>
+        <Text style={styles.headerTitle}>{t['members.memberManagement']}</Text>
       </View>
 
       {members.length > 0 ? (

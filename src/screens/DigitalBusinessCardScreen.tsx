@@ -27,7 +27,7 @@ const DigitalBusinessCardScreen: React.FC = () => {
         title: 'Digital Business Card',
       });
     } catch (error) {
-      Alert.alert(t('common.error'), 'Failed to share');
+      Alert.alert(t['common.error'], 'Failed to share');
     }
   };
 
@@ -77,7 +77,7 @@ const DigitalBusinessCardScreen: React.FC = () => {
 
         <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
           <Text style={styles.shareButtonIcon}>↗</Text>
-          <Text style={styles.shareButtonText}>{t('businessCard.shareVia')}</Text>
+          <Text style={styles.shareButtonText}>{t['businessCard.shareVia']}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -142,9 +142,9 @@ const CardsScreen: React.FC = () => {
     key: 'all' | 'active' | 'disabled' | 'lost';
     label: string;
   }> = [
-    { key: 'all', label: t('cards.allCards') },
-    { key: 'active', label: t('cards.activeCards') },
-    { key: 'disabled', label: t('cards.disabledCards') },
+    { key: 'all', label: t['cards.allCards'] },
+    { key: 'active', label: t['cards.activeCards'] },
+    { key: 'disabled', label: t['cards.disabledCards'] },
     { key: 'lost', label: 'Lost' },
   ];
 
@@ -154,7 +154,7 @@ const CardsScreen: React.FC = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('cards.cardManagement')}</Text>
+        <Text style={styles.headerTitle}>{t['cards.cardManagement']}</Text>
       </View>
 
       {/* Search Bar */}
@@ -163,7 +163,7 @@ const CardsScreen: React.FC = () => {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder={t('common.search')}
+            placeholder={t['common.search']}
             placeholderTextColor={Colors.textMuted}
             value={searchText}
             onChangeText={handleSearch}

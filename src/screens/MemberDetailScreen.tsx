@@ -76,21 +76,21 @@ const MemberDetailScreen: React.FC = () => {
 
         {/* Member Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('members.memberDetail')}</Text>
+          <Text style={styles.sectionTitle}>{t['members.memberDetail']}</Text>
           <View style={styles.infoCard}>
-            <InfoRow label={t('members.name')} value={member.name} />
-            {member.email && <InfoRow label={t('members.email')} value={member.email} />}
-            {member.phone && <InfoRow label={t('members.phone')} value={member.phone} />}
-            {member.position && <InfoRow label={t('members.position')} value={member.position} />}
-            {member.company && <InfoRow label={t('members.company')} value={member.company} />}
-            {member.rank && <InfoRow label={t('members.rank')} value={member.rank} />}
-            <InfoRow label={t('members.joinDate')} value={new Date(member.joinDate).toLocaleDateString()} />
+            <InfoRow label={t['members.name']} value={member.name} />
+            {member.email && <InfoRow label={t['members.email']} value={member.email} />}
+            {member.phone && <InfoRow label={t['members.phone']} value={member.phone} />}
+            {member.position && <InfoRow label={t['members.position']} value={member.position} />}
+            {member.company && <InfoRow label={t['members.company']} value={member.company} />}
+            {member.rank && <InfoRow label={t['members.rank']} value={member.rank} />}
+            <InfoRow label={t['members.joinDate']} value={new Date(member.joinDate).toLocaleDateString()} />
           </View>
         </View>
 
         {/* Linked Cards */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('members.linkedCards')}</Text>
+          <Text style={styles.sectionTitle}>{t['members.linkedCards']}</Text>
           {member.cards && member.cards.length > 0 ? (
             <View style={styles.cardsList}>
               {member.cards.map((card, idx) => (
@@ -106,7 +106,7 @@ const MemberDetailScreen: React.FC = () => {
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>{t('members.noCards')}</Text>
+              <Text style={styles.emptyText}>{t['members.noCards']}</Text>
             </View>
           )}
         </View>

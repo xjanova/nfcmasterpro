@@ -67,26 +67,26 @@ const CardDetailScreen: React.FC = () => {
 
   const handleAddBalance = async () => {
     if (!cardUID || !addBalanceAmount) {
-      Alert.alert(t('common.error'), 'Please enter an amount');
+      Alert.alert(t['common.error'], 'Please enter an amount');
       return;
     }
 
     const amount = parseFloat(addBalanceAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert(t('common.error'), 'Invalid amount');
+      Alert.alert(t['common.error'], 'Invalid amount');
       return;
     }
 
     setProcessingBalance(true);
     try {
       await paymentService.addCredit(cardUID, amount);
-      Alert.alert(t('common.success'), 'Balance added successfully');
+      Alert.alert(t['common.success'], 'Balance added successfully');
       setAddBalanceModalVisible(false);
       setAddBalanceAmount('');
       await loadCardData();
     } catch (error) {
       Alert.alert(
-        t('common.error'),
+        t['common.error'],
         error instanceof Error ? error.message : 'Failed to add balance'
       );
     } finally {
@@ -98,12 +98,12 @@ const CardDetailScreen: React.FC = () => {
     if (!card) return;
 
     Alert.alert(
-      t('common.confirm'),
+      t['common.confirm'],
       `${card.status === 'active' ? 'Disable' : 'Enable'} this card?`,
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t['common.cancel'], style: 'cancel' },
         {
-          text: t('common.confirm'),
+          text: t['common.confirm'],
           onPress: async () => {
             try {
               const newStatus = card.status === 'active' ? 'disabled' : 'active';
@@ -112,10 +112,10 @@ const CardDetailScreen: React.FC = () => {
                 newStatus
               );
               setCard(updated);
-              Alert.alert(t('common.success'), 'Card status updated');
+              Alert.alert(t['common.success'], 'Card status updated');
             } catch (error) {
               Alert.alert(
-                t('common.error'),
+                t['common.error'],
                 error instanceof Error ? error.message : 'Failed to update status'
               );
             }
@@ -129,20 +129,20 @@ const CardDetailScreen: React.FC = () => {
     if (!card) return;
 
     Alert.alert(
-      t('common.confirm'),
+      t['common.confirm'],
       'Mark this card as lost? This action cannot be undone.',
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t['common.cancel'], style: 'cancel' },
         {
           text: 'Mark as Lost',
           onPress: async () => {
             try {
               const updated = await cardService.updateCardStatus(cardUID, 'lost');
               setCard(updated);
-              Alert.alert(t('common.success'), 'Card marked as lost');
+              Alert.alert(t['common.success'], 'Card marked as lost');
             } catch (error) {
               Alert.alert(
-                t('common.error'),
+                t['common.error'],
                 error instanceof Error ? error.message : 'Failed to mark as lost'
               );
             }
@@ -155,20 +155,20 @@ const CardDetailScreen: React.FC = () => {
 
   const handleDeleteCard = async () => {
     Alert.alert(
-      t('common.confirm'),
+      t['common.confirm'],
       'Delete this card permanently? This cannot be undone.',
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t['common.cancel'], style: 'cancel' },
         {
-          text: t('common.delete'),
+          text: t['common.delete'],
           onPress: async () => {
             try {
               await cardService.deleteCard(cardUID);
-              Alert.alert(t('common.success'), 'Card deleted');
+              Alert.alert(t['common.success'], 'Card deleted');
               navigation.goBack();
             } catch (error) {
               Alert.alert(
-                t('common.error'),
+                t['common.error'],
                 error instanceof Error ? error.message : 'Failed to delete card'
               );
             }

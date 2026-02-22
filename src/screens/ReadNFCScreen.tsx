@@ -29,7 +29,7 @@ const ReadNFCScreen: React.FC = () => {
         size: 1024,
         records: [{ type: 'Text', data: 'Sample NFC Data' }],
       });
-      Alert.alert(t('nfc.readSuccess'), 'Tag data read successfully');
+      Alert.alert(t['nfc.readSuccess'], 'Tag data read successfully');
     }, 2000);
   };
 
@@ -41,13 +41,13 @@ const ReadNFCScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('nfc.readCard')}</Text>
+        <Text style={styles.title}>{t['nfc.readCard']}</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.instruction}>
           <Text style={styles.instructionIcon}>📱</Text>
-          <Text style={styles.instructionText}>{t('nfc.tapCard')}</Text>
+          <Text style={styles.instructionText}>{t['nfc.tapCard']}</Text>
         </View>
 
         <TouchableOpacity
@@ -55,20 +55,20 @@ const ReadNFCScreen: React.FC = () => {
           onPress={startReading}
           disabled={scanning}>
           <Text style={styles.scanButtonText}>
-            {scanning ? t('nfc.scanning') : 'Start Reading'}
+            {scanning ? t['nfc.scanning'] : 'Start Reading'}
           </Text>
         </TouchableOpacity>
 
         {tagData && (
           <View style={styles.dataSection}>
-            <Text style={styles.sectionTitle}>{t('nfc.tagInfo')}</Text>
-            <DataItem label={t('nfc.tagUID')} value={tagData.uid} mono={true} />
-            <DataItem label={t('nfc.tagType')} value={tagData.type} />
-            <DataItem label={t('nfc.tagSize')} value={`${tagData.size} bytes`} />
+            <Text style={styles.sectionTitle}>{t['nfc.tagInfo']}</Text>
+            <DataItem label={t['nfc.tagUID']} value={tagData.uid} mono={true} />
+            <DataItem label={t['nfc.tagType']} value={tagData.type} />
+            <DataItem label={t['nfc.tagSize']} value={`${tagData.size} bytes`} />
 
             {tagData.records && tagData.records.length > 0 && (
               <View style={styles.recordsSection}>
-                <Text style={styles.recordsTitle}>{t('nfc.ndefRecords')}</Text>
+                <Text style={styles.recordsTitle}>{t['nfc.ndefRecords']}</Text>
                 {tagData.records.map((record: any, idx: number) => (
                   <View key={idx} style={styles.recordItem}>
                     <Text style={styles.recordType}>{record.type}</Text>

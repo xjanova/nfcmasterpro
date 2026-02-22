@@ -12,18 +12,20 @@ interface StatusBadgeProps {
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' }) => {
   const { t } = useLanguage();
 
+  const cardStatusLabels = t['cards.cardStatus'] as unknown as { active: string; disabled: string; lost: string };
+
   const statusConfig = {
     active: {
       color: Colors.success,
-      label: t['cards.cardStatus.active'],
+      label: cardStatusLabels?.active || 'Active',
     },
     disabled: {
       color: Colors.danger,
-      label: t['cards.cardStatus.disabled'],
+      label: cardStatusLabels?.disabled || 'Disabled',
     },
     lost: {
       color: Colors.textMuted,
-      label: t['cards.cardStatus.lost'],
+      label: cardStatusLabels?.lost || 'Lost',
     },
   };
 

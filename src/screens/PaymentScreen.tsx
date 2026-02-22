@@ -25,26 +25,26 @@ const PaymentScreen: React.FC = () => {
 
   const handlePayment = async () => {
     if (!cardUID || !amount) {
-      Alert.alert(t('common.error'), 'Please fill in all fields');
+      Alert.alert(t['common.error'], 'Please fill in all fields');
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert(t('common.error'), 'Invalid amount');
+      Alert.alert(t['common.error'], 'Invalid amount');
       return;
     }
 
     setProcessing(true);
     try {
       const transaction = await paymentService.processPayment(cardUID, parsedAmount);
-      Alert.alert(t('common.success'), 'Payment processed successfully');
+      Alert.alert(t['common.success'], 'Payment processed successfully');
       navigation.navigate('PaymentResult', { transaction });
       setCardUID('');
       setAmount('');
     } catch (error) {
       Alert.alert(
-        t('common.error'),
+        t['common.error'],
         error instanceof Error ? error.message : 'Payment failed'
       );
     } finally {
@@ -60,8 +60,8 @@ const PaymentScreen: React.FC = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('payment.paymentTest')}</Text>
-          <Text style={styles.subtitle}>{t('payment.testMode')}</Text>
+          <Text style={styles.title}>{t['payment.paymentTest']}</Text>
+          <Text style={styles.subtitle}>{t['payment.testMode']}</Text>
         </View>
 
         <View style={styles.section}>
@@ -94,14 +94,14 @@ const PaymentScreen: React.FC = () => {
           {processing ? (
             <ActivityIndicator color={Colors.text} />
           ) : (
-            <Text style={styles.paymentButtonText}>{t('payment.tapToPay')}</Text>
+            <Text style={styles.paymentButtonText}>{t['payment.tapToPay']}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.historyButton}
           onPress={() => navigation.navigate('TransactionHistory')}>
-          <Text style={styles.historyButtonText}>{t('payment.transactionHistory')}</Text>
+          <Text style={styles.historyButtonText}>{t['payment.transactionHistory']}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

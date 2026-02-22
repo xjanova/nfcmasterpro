@@ -156,13 +156,13 @@ const DashboardScreen: React.FC = () => {
             <GradientCard
               icon="💳"
               value={stats.totalCards.toString()}
-              label={t('dashboard.totalCards')}
+              label={t['dashboard.totalCards']}
               style={styles.statCard}
             />
             <GradientCard
               icon="👤"
               value={stats.totalMembers.toString()}
-              label={t('dashboard.totalMembers')}
+              label={t['dashboard.totalMembers']}
               style={styles.statCard}
             />
           </View>
@@ -170,13 +170,13 @@ const DashboardScreen: React.FC = () => {
             <GradientCard
               icon="💰"
               value={`${stats.totalBalance} ${DEFAULT_CURRENCY}`}
-              label={t('cards.balance')}
+              label={t['cards.balance']}
               style={styles.statCard}
             />
             <GradientCard
               icon="⭐"
               value={stats.pvPointsIssued.toString()}
-              label={t('cards.pvPoints')}
+              label={t['cards.pvPoints']}
               style={styles.statCard}
             />
           </View>
@@ -184,7 +184,7 @@ const DashboardScreen: React.FC = () => {
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('dashboard.quickScan')}</Text>
+          <Text style={styles.sectionTitle}>{t['dashboard.quickScan']}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -213,7 +213,7 @@ const DashboardScreen: React.FC = () => {
         {/* Recent Activity */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('dashboard.recentActivity')}</Text>
+            <Text style={styles.sectionTitle}>{t['dashboard.recentActivity']}</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('TransactionHistory')}>
               <Text style={styles.viewAllLink}>View All →</Text>
@@ -257,7 +257,7 @@ const DashboardScreen: React.FC = () => {
 
         {/* NFC Tools */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('dashboard.nfcTools')}</Text>
+          <Text style={styles.sectionTitle}>{t['dashboard.nfcTools']}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}

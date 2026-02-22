@@ -53,13 +53,13 @@ const NotificationsScreen: React.FC = () => {
       await storageService.saveNotifications(updated);
       setNotifications(updated);
     } catch (error) {
-      Alert.alert(t('common.error'), 'Failed to mark as read');
+      Alert.alert(t['common.error'], 'Failed to mark as read');
     }
   };
 
   const handleClear = async () => {
-    Alert.alert(t('common.confirm'), 'Clear all notifications?', [
-      { text: t('common.cancel'), style: 'cancel' },
+    Alert.alert(t['common.confirm'], 'Clear all notifications?', [
+      { text: t['common.cancel'], style: 'cancel' },
       {
         text: 'Clear',
         onPress: async () => {
@@ -67,7 +67,7 @@ const NotificationsScreen: React.FC = () => {
             await storageService.saveNotifications([]);
             setNotifications([]);
           } catch (error) {
-            Alert.alert(t('common.error'), 'Failed to clear notifications');
+            Alert.alert(t['common.error'], 'Failed to clear notifications');
           }
         },
         style: 'destructive',
@@ -117,7 +117,7 @@ const NotificationsScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('notifications.notifications')}</Text>
+        <Text style={styles.title}>{t['notifications.notifications']}</Text>
         <View style={styles.headerActions}>
           {notifications.length > 0 && (
             <>

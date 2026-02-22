@@ -31,7 +31,7 @@ const CloneNFCScreen: React.FC = () => {
         records: [{ type: 'Text', data: 'Sample NFC Data' }],
       });
       setStep('target');
-      Alert.alert(t('nfc.readSuccess'), 'Source tag read. Ready to write to target.');
+      Alert.alert(t['nfc.readSuccess'], 'Source tag read. Ready to write to target.');
     }, 2000);
   };
 
@@ -41,7 +41,7 @@ const CloneNFCScreen: React.FC = () => {
     setTimeout(() => {
       setCloning(false);
       setStep('done');
-      Alert.alert(t('nfc.cloneSuccess'), 'Tag cloned successfully');
+      Alert.alert(t['nfc.cloneSuccess'], 'Tag cloned successfully');
     }, 2000);
   };
 
@@ -53,7 +53,7 @@ const CloneNFCScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('nfc.cloneCard')}</Text>
+        <Text style={styles.title}>{t['nfc.cloneCard']}</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -64,8 +64,8 @@ const CloneNFCScreen: React.FC = () => {
               <Text style={styles.stepNumberText}>1</Text>
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>{t('nfc.sourceTag')}</Text>
-              <Text style={styles.stepDescription}>{t('nfc.readingSource')}</Text>
+              <Text style={styles.stepTitle}>{t['nfc.sourceTag']}</Text>
+              <Text style={styles.stepDescription}>{t['nfc.readingSource']}</Text>
             </View>
           </View>
 
@@ -78,7 +78,7 @@ const CloneNFCScreen: React.FC = () => {
               onPress={handleReadSource}
               disabled={step !== 'source' || cloning}>
               <Text style={styles.stepButtonText}>
-                {cloning ? t('nfc.scanning') : 'Read Source Tag'}
+                {cloning ? t['nfc.scanning'] : 'Read Source Tag'}
               </Text>
             </TouchableOpacity>
           )}
@@ -98,8 +98,8 @@ const CloneNFCScreen: React.FC = () => {
                   <Text style={styles.stepNumberText}>2</Text>
                 </View>
                 <View style={styles.stepContent}>
-                  <Text style={styles.stepTitle}>{t('nfc.targetTag')}</Text>
-                  <Text style={styles.stepDescription}>{t('nfc.waitingForTarget')}</Text>
+                  <Text style={styles.stepTitle}>{t['nfc.targetTag']}</Text>
+                  <Text style={styles.stepDescription}>{t['nfc.waitingForTarget']}</Text>
                 </View>
               </View>
 
@@ -111,7 +111,7 @@ const CloneNFCScreen: React.FC = () => {
                 onPress={handleWriteTarget}
                 disabled={step !== 'target' || cloning}>
                 <Text style={styles.stepButtonText}>
-                  {cloning ? t('nfc.writingData') : 'Write to Target Tag'}
+                  {cloning ? t['nfc.writingData'] : 'Write to Target Tag'}
                 </Text>
               </TouchableOpacity>
             </>
@@ -121,7 +121,7 @@ const CloneNFCScreen: React.FC = () => {
           {step === 'done' && (
             <View style={styles.completeSection}>
               <Text style={styles.completeIcon}>✓</Text>
-              <Text style={styles.completeText}>{t('nfc.cloneSuccess')}</Text>
+              <Text style={styles.completeText}>{t['nfc.cloneSuccess']}</Text>
               <TouchableOpacity
                 style={styles.doneButton}
                 onPress={() => navigation.goBack()}>
