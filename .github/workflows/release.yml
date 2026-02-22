@@ -125,9 +125,8 @@ jobs:
         working-directory: /tmp/nfc-release
         run: |
           npm install --legacy-peer-deps
-          # Remove axios Node.js variant entirely — Metro must use browser build
-          rm -rf node_modules/axios/dist/node/
-          node -e "const p=require('./node_modules/axios/package.json'); delete p.exports; require('fs').writeFileSync('./node_modules/axios/package.json', JSON.stringify(p,null,2)); console.log('✅ Axios patched for React Native');"
+          # Patch axios to use browser entry point (main field points to Node.js CJS which uses crypto/url)
+          node -e "const p=require('./node_modules/axios/package.json'); delete p.exports; p.main='index.js'; require('fs').writeFileSync('./node_modules/axios/package.json', JSON.stringify(p,null,2)); console.log('✅ Axios patched: main→index.js, exports removed');"
 
       # ──────────────────────────────────────────
       # 7. Generate release keystore
