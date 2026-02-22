@@ -9,6 +9,7 @@ import {
   StatusBar,
   FlatList,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   GradientCard,
@@ -25,6 +26,7 @@ import * as storageService from '../services/storageService';
 import { DashboardStats, Transaction } from '../types';
 
 const DashboardScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats>({
@@ -116,7 +118,7 @@ const DashboardScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
       <ScrollView
@@ -145,7 +147,7 @@ const DashboardScreen: React.FC = () => {
               )}
             </TouchableOpacity>
             <View style={styles.languageToggleWrapper}>
-              <LanguageToggle />
+              <LanguageToggle compact />
             </View>
           </View>
         </View>

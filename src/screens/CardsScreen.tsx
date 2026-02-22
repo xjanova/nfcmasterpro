@@ -10,6 +10,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NFCCardVisual, StatusBadge, EmptyState } from '../components';
 import { useLanguage } from '../utils/i18n';
@@ -19,6 +20,7 @@ import * as cardService from '../services/cardService';
 import { CardInfo } from '../types';
 
 const CardsScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
   const [cards, setCards] = useState<CardInfo[]>([]);
@@ -149,7 +151,7 @@ const CardsScreen: React.FC = () => {
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
       {/* Header */}

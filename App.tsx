@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar, LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from './src/context/LanguageContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initNFC } from './src/services/nfcService';
@@ -17,13 +18,15 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <LanguageProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar barStyle="light-content" backgroundColor="#0a0a0f" />
-        <AppNavigator />
-        <Toast />
-      </GestureHandlerRootView>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <StatusBar barStyle="light-content" backgroundColor="#0a0a0f" />
+          <AppNavigator />
+          <Toast />
+        </GestureHandlerRootView>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 };
 

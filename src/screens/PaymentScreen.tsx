@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../utils/i18n';
 import { Colors, Spacing, Radius, FontSizes, TextStyles } from '../utils/theme';
@@ -17,6 +18,7 @@ import { DEFAULT_CURRENCY } from '../utils/constants';
 import * as paymentService from '../services/paymentService';
 
 const PaymentScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
   const [cardUID, setCardUID] = useState('');
@@ -53,7 +55,7 @@ const PaymentScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
       <ScrollView

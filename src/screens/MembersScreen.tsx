@@ -8,6 +8,7 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { MemberAvatar, EmptyState } from '../components';
 import { useLanguage } from '../utils/i18n';
@@ -16,6 +17,7 @@ import * as storageService from '../services/storageService';
 import { Member } from '../types';
 
 const MembersScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { t } = useLanguage();
   const [members, setMembers] = useState<Member[]>([]);
@@ -64,7 +66,7 @@ const MembersScreen: React.FC = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
       <View style={styles.header}>
