@@ -77,6 +77,7 @@ jobs:
           cp -rf src/ /tmp/nfc-build/src/
           cp App.tsx /tmp/nfc-build/App.tsx
           cp metro.config.js /tmp/nfc-build/metro.config.js
+          cp -rf shims/ /tmp/nfc-build/shims/
 
           echo "📝 Merging package.json dependencies..."
           node -e "

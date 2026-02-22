@@ -1,13 +1,16 @@
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+const path = require('path');
 
 /**
- * Metro configuration
- * Disable package exports resolution to prevent Metro from picking up
- * Node.js-specific entry points (e.g. axios/dist/node/axios.cjs uses crypto)
+ * Metro configuration for NFCMasterPro
+ * - Provides crypto shim for axios (uses Node.js crypto in its CJS bundle)
+ * - Disables package exports to prevent Metro from picking up Node.js-specific entry points
  */
 const config = {
   resolver: {
-    unstable_enablePackageExports: false,
+    extraNodeModules: {
+      crypto: path.resolve(__dirname, 'shims/crypto.js'),
+    },
   },
 };
 
