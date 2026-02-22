@@ -97,6 +97,7 @@ jobs:
         run: |
           cp -rf src/ /tmp/nfc-release/src/
           cp App.tsx /tmp/nfc-release/App.tsx
+          cp metro.config.js /tmp/nfc-release/metro.config.js
 
           node -e "
             const fs = require('fs');

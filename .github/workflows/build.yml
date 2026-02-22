@@ -76,6 +76,7 @@ jobs:
           echo "📂 Copying custom source files..."
           cp -rf src/ /tmp/nfc-build/src/
           cp App.tsx /tmp/nfc-build/App.tsx
+          cp metro.config.js /tmp/nfc-build/metro.config.js
 
           echo "📝 Merging package.json dependencies..."
           node -e "
