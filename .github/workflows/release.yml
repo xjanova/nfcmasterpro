@@ -180,7 +180,20 @@ jobs:
           """
 
           if 'signingConfigs' not in content:
+              # No signingConfigs at all — insert a new block
               content = content.replace('    buildTypes {', signing_block + '    buildTypes {')
+          elif 'MYAPP_RELEASE_STORE_FILE' not in content:
+              # signingConfigs exists (debug only) — inject release config inside it
+              release_entry = (
+                  "    signingConfigs {\n"
+                  "        release {\n"
+                  "            storeFile file(MYAPP_RELEASE_STORE_FILE)\n"
+                  "            storePassword MYAPP_RELEASE_STORE_PASSWORD\n"
+                  "            keyAlias MYAPP_RELEASE_KEY_ALIAS\n"
+                  "            keyPassword MYAPP_RELEASE_KEY_PASSWORD\n"
+                  "        }\n"
+              )
+              content = re.sub(r'signingConfigs\s*\{', release_entry + '        ', content, count=1)
 
           # Point release buildType to our signingConfig
           content = re.sub(
